@@ -86,33 +86,33 @@ Chat = {
     // Global BTTV/FFZ/7TV sets — loaded once; channel sets merge in additively
     loadGlobalEmotes: function() {
         $.getJSON('https://api.betterttv.net/3/cached/frankerfacez/emotes/global').done(function(res) {
-            res.forEach(Chat.addFFZEmote);
+            res.forEach(function(e) { Chat.addFFZEmote(e, 'Global'); });
         });
         $.getJSON('https://api.betterttv.net/3/cached/emotes/global').done(function(res) {
-            res.forEach(Chat.addBTTVEmote);
+            res.forEach(function(e) { Chat.addBTTVEmote(e, 'Global'); });
         });
         // 7TV v3 API (v2 was shut down)
         $.getJSON('https://7tv.io/v3/emote-sets/global').done(function(res) {
-            (res.emotes || []).forEach(Chat.addSevenTVEmote);
+            (res.emotes || []).forEach(function(e) { Chat.addSevenTVEmote(e, 'Global'); });
         });
     },
 
     loadChannelEmotes: function(channelID, login) {
         $.getJSON('https://api.betterttv.net/3/cached/frankerfacez/users/twitch/' + encodeURIComponent(channelID)).done(function(res) {
-            res.forEach(Chat.addFFZEmote);
+            res.forEach(function(e) { Chat.addFFZEmote(e, login); });
         });
         $.getJSON('https://api.betterttv.net/3/cached/users/twitch/' + encodeURIComponent(channelID)).done(function(res) {
             if (!Array.isArray(res)) {
                 res = res.channelEmotes.concat(res.sharedEmotes);
             }
-            res.forEach(Chat.addBTTVEmote);
+            res.forEach(function(e) { Chat.addBTTVEmote(e, login); });
         });
         $.getJSON('https://7tv.io/v3/users/twitch/' + encodeURIComponent(channelID))
             .done(function(res) {
                 if (res.emote_set) {
                     Chat.info.seventvEmoteSetIDs[login] = res.emote_set.id;
                     if (login === Chat.info.channel) Chat.info.seventvEmoteSetID = res.emote_set.id;
-                    (res.emote_set.emotes || []).forEach(Chat.addSevenTVEmote);
+                    (res.emote_set.emotes || []).forEach(function(e) { Chat.addSevenTVEmote(e, login); });
                 }
                 Chat.startSevenTV();
                 Chat.ensureSevenTVSubscriptions();
@@ -131,7 +131,7 @@ Chat = {
         });
     },
 
-    addFFZEmote: function(emote) {
+    addFFZEmote: function(emote, origin) {
         if (emote.images['4x']) {
             var imageUrl = emote.images['4x'];
             var upscale = false;
@@ -142,19 +142,23 @@ Chat = {
         Chat.info.emotes[emote.code] = {
             id: emote.id,
             image: imageUrl,
-            upscale: upscale
+            upscale: upscale,
+            provider: 'FFZ',
+            origin: origin || 'Global'
         };
     },
 
-    addBTTVEmote: function(emote) {
+    addBTTVEmote: function(emote, origin) {
         Chat.info.emotes[emote.code] = {
             id: emote.id,
             image: 'https://cdn.betterttv.net/emote/' + emote.id + '/3x',
-            zeroWidth: ["5e76d338d6581c3724c0f0b2", "5e76d399d6581c3724c0f0b8", "567b5b520e984428652809b6", "5849c9a4f52be01a7ee5f79d", "567b5c080e984428652809ba", "567b5dc00e984428652809bd", "58487cc6f52be01a7ee5f205", "5849c9c8f52be01a7ee5f79e"].includes(emote.id) // cvHazmat, cvMask, SoSnowy, IceCold, CandyCane, ReinDeer, SantaHat, TopHat
+            zeroWidth: ["5e76d338d6581c3724c0f0b2", "5e76d399d6581c3724c0f0b8", "567b5b520e984428652809b6", "5849c9a4f52be01a7ee5f79d", "567b5c080e984428652809ba", "567b5dc00e984428652809bd", "58487cc6f52be01a7ee5f205", "5849c9c8f52be01a7ee5f79e"].includes(emote.id), // cvHazmat, cvMask, SoSnowy, IceCold, CandyCane, ReinDeer, SantaHat, TopHat
+            provider: 'BTTV',
+            origin: origin || 'Global'
         };
     },
 
-    addSevenTVEmote: function(emote) {
+    addSevenTVEmote: function(emote, origin) {
         var host = emote.data && emote.data.host;
         if (!host || !host.url || typeof emote.name !== 'string') return;
         var base = host.url.indexOf('//') === 0 ? 'https:' + host.url : host.url;
@@ -166,7 +170,9 @@ Chat = {
         Chat.info.emotes[emote.name] = {
             id: emote.id,
             image: image,
-            zeroWidth: !!((emote.flags & 1) || (emote.data.flags & 256))
+            zeroWidth: !!((emote.flags & 1) || (emote.data.flags & 256)),
+            provider: '7TV',
+            origin: origin || Chat.info.channel || 'Channel'
         };
     },
 
@@ -871,15 +877,17 @@ Chat = {
                     var emojis = new RegExp('[က-￿]+', 'g');
                     var aux = message.replace(emojis, ' ');
                     var emoteCode = aux.substr(indexes[0], indexes[1] - indexes[0] + 1);
-                    replacements[emoteCode] = '<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/' + escapeAttr(twitchEmote[0]) + '/default/dark/3.0" />';
+                    replacements[emoteCode] = '<img class="emote" data-name="' + escapeAttr(emoteCode) + '" data-prov="Twitch" src="https://static-cdn.jtvnw.net/emoticons/v2/' + escapeAttr(twitchEmote[0]) + '/default/dark/3.0" />';
                 });
             }
 
             Object.entries(Chat.info.emotes).forEach(emote => {
                 if (message.search(escapeRegExp(emote[0])) > -1) {
-                    if (emote[1].upscale) replacements[emote[0]] = '<img class="emote upscale" src="' + escapeAttr(emote[1].image) + '" />';
-                    else if (emote[1].zeroWidth) replacements[emote[0]] = '<img class="emote" data-zw="true" src="' + escapeAttr(emote[1].image) + '" />';
-                    else replacements[emote[0]] = '<img class="emote" src="' + escapeAttr(emote[1].image) + '" />';
+                    // data-* attributes drive the hover tooltip (name / provider / origin)
+                    var tip = ' data-name="' + escapeAttr(emote[0]) + '" data-prov="' + escapeAttr(emote[1].provider || '') + '" data-origin="' + escapeAttr(emote[1].origin || '') + '"';
+                    if (emote[1].upscale) replacements[emote[0]] = '<img class="emote upscale"' + tip + ' src="' + escapeAttr(emote[1].image) + '" />';
+                    else if (emote[1].zeroWidth) replacements[emote[0]] = '<img class="emote" data-zw="true"' + tip + ' src="' + escapeAttr(emote[1].image) + '" />';
+                    else replacements[emote[0]] = '<img class="emote"' + tip + ' src="' + escapeAttr(emote[1].image) + '" />';
                 }
             });
 
@@ -896,8 +904,8 @@ Chat = {
             // Kick emotes arrive inline as [emote:id:name] tokens (id digits only -> safe in src).
             // Must run AFTER linkify, which would otherwise wrap the injected src URL in an anchor.
             if (isKick) {
-                message = message.replace(/\[emote:(\d+):[^\]]*\]/g, function(m, emoteId) {
-                    return '<img class="emote" src="https://files.kick.com/emotes/' + emoteId + '/fullsize" />';
+                message = message.replace(/\[emote:(\d+):([^\]]*)\]/g, function(m, emoteId, emoteName) {
+                    return '<img class="emote" data-name="' + escapeAttr(emoteName) + '" data-prov="Kick" data-origin="' + escapeAttr(source.channel || '') + '" src="https://files.kick.com/emotes/' + emoteId + '/fullsize" />';
                 });
             }
 
@@ -1000,6 +1008,7 @@ Chat = {
         Chat.info.multiSource = ('kick' in $.QueryString && $.QueryString.kick.length > 0) || ($.QueryString.channel || '').indexOf(',') > -1;
         Chat.load(function() {
             Chat.loadGlobalEmotes();
+            Chat.setupEmoteTooltips();
             var users = [
                 ['PixelPal', '#FF69B4'],
                 ['StreamFan42', '#1E90FF'],
@@ -1175,6 +1184,42 @@ Chat = {
         };
         $send.on('click', send);
         $input.on('keydown', function(e) { if (e.key === 'Enter') send(); });
+    },
+
+    // Hover tooltip for emotes: enlarged preview + name + provider/origin, like the
+    // native Twitch/7TV clients. Works on any emote img carrying data-name.
+    setupEmoteTooltips: function() {
+        if (Chat.emoteTipReady) return;
+        Chat.emoteTipReady = true;
+        var $tip = $('<div id="emote_tooltip"></div>').appendTo('body');
+        var reposition = function(el) {
+            var r = el.getBoundingClientRect();
+            var tw = $tip.outerWidth(), th = $tip.outerHeight();
+            var left = r.left + r.width / 2 - tw / 2;
+            left = Math.max(4, Math.min(left, window.innerWidth - tw - 4));
+            var top = r.top - th - 6;
+            if (top < 4) top = r.bottom + 6; // flip below if no room above
+            $tip.css({ left: left + 'px', top: top + 'px' });
+        };
+        $(document).on('mouseenter', 'img.emote[data-name]', function() {
+            var $img = $(this);
+            var name = $img.attr('data-name');
+            if (!name) return;
+            var prov = $img.attr('data-prov') || '';
+            var origin = $img.attr('data-origin') || '';
+            var sub = prov;
+            if (origin && origin !== 'Global' && origin !== 'Channel') sub += (sub ? ' · ' : '') + origin;
+            else if (origin === 'Global') sub += ' · Global';
+            $tip.empty();
+            $tip.append($('<img>').attr('src', $img.attr('src')));
+            $tip.append($('<div class="tip_name"></div>').text('Emote: ' + name));
+            if (sub) $tip.append($('<div class="tip_sub"></div>').text(sub));
+            $tip.css('display', 'block');
+            reposition(this);
+        });
+        $(document).on('mouseleave', 'img.emote[data-name]', function() {
+            $tip.css('display', 'none');
+        });
     },
 
     setupLoginButton: function() {
@@ -1451,6 +1496,7 @@ Chat = {
 
         Chat.load(function() {
             Chat.loadGlobalEmotes();
+            Chat.setupEmoteTooltips();
             if (Chat.info.channels.length) Chat.connectIRC();
             if (Chat.info.kickChannels.length) Chat.connectKick();
             if (Chat.info.modMode) {
