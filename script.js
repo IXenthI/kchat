@@ -505,9 +505,9 @@ Chat = {
                 if (typeof pronoun === 'string') $userInfo.append($('<span></span>').addClass('pronoun').text(pronoun));
             }
 
-            // Writing badges
+            // Writing badges (badges/emotes tags are often present but empty — '' must skip)
             if (Chat.info.hideBadges) {
-                if (typeof(info.badges) === 'string') {
+                if (typeof(info.badges) === 'string' && info.badges) {
                     info.badges.split(',').forEach(badge => {
                         var $badge = $('<img/>');
                         $badge.addClass('badge');
@@ -519,7 +519,7 @@ Chat = {
             } else {
                 var badges = [];
                 const priorityBadges = ['predictions', 'admin', 'global_mod', 'staff', 'twitchbot', 'broadcaster', 'moderator', 'vip'];
-                if (typeof(info.badges) === 'string') {
+                if (typeof(info.badges) === 'string' && info.badges) {
                     info.badges.split(',').forEach(badge => {
                         badge = badge.split('/');
                         var priority = (priorityBadges.includes(badge[0]) ? true : false);
@@ -614,7 +614,7 @@ Chat = {
 
             // Replacing emotes and cheers
             var replacements = {};
-            if (typeof(info.emotes) === 'string') {
+            if (typeof(info.emotes) === 'string' && info.emotes) {
                 info.emotes.split('/').forEach(emoteData => {
                     var twitchEmote = emoteData.split(':');
                     var indexes = twitchEmote[1].split(',')[0].split('-');
