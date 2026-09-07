@@ -51,6 +51,7 @@
   .section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 10px; }
   .subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); font-weight: 600; margin: 12px 0 4px; border-top: 1px solid var(--border); padding-top: 10px; }
   .blockrow { display: flex; align-items: center; gap: 12px; }
+  .blockrow label { width: 90px; flex-shrink: 0; }
   .blockrow input { flex: 1; }
   .preview-box { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 320px; background: #000; }
   .preview-box iframe { width: 100%; height: 100%; border: none; }
@@ -154,7 +155,11 @@
         </select></div></div>
         <div class="opt"><label>New line after name</label><input type="checkbox" id="nl"></div>
         <div class="opt"><label>Hide usernames</label><input type="checkbox" id="hide_usernames"></div>
-        <div class="opt"><label>Hide badges</label><input type="checkbox" id="hide_badges"></div>
+        <div class="subhead">Badges <span style="text-transform:none;letter-spacing:0;font-weight:400">— 7TV badges use the paints toggle below</span></div>
+        <div class="opt"><label>Twitch badges <span style="color:var(--muted)">(sub, mod, VIP…)</span></label><input type="checkbox" id="twitch_badges" checked></div>
+        <div class="opt"><label>BTTV badges</label><input type="checkbox" id="bttv_badges" checked></div>
+        <div class="opt"><label>FFZ badges</label><input type="checkbox" id="ffz_badges" checked></div>
+        <div class="opt"><label>Chatterino badges</label><input type="checkbox" id="chatterino_badges" checked></div>
         <div class="opt"><label>Sub / raid / announce events</label><input type="checkbox" id="events" checked></div>
         <div class="opt"><label>Highlight first-timers &amp; channel points</label><input type="checkbox" id="highlights" checked></div>
         <div class="opt"><label>Highlight @mentions of you</label><input type="checkbox" id="mention" checked></div>
@@ -204,7 +209,7 @@
 <script>
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','text','text_hex','animate','bots','hide_commands','fade_on','fade','textcase','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','dock','mod','block','filter'];
+  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','text','text_hex','animate','bots','hide_commands','fade_on','fade','textcase','nl','hide_usernames','twitch_badges','bttv_badges','ffz_badges','chatterino_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','dock','mod','block','filter'];
   var previewTimer = null;
 
   function params(forPreview) {
@@ -239,7 +244,10 @@
     else if ($('textcase').value === 'small_caps') p.set('small_caps', 'true');
     if ($('nl').checked) p.set('nl', 'true');
     if ($('hide_usernames').checked) p.set('hide_usernames', 'true');
-    if ($('hide_badges').checked) p.set('hide_badges', 'true');
+    if (!$('twitch_badges').checked) p.set('twitch_badges', 'false');
+    if (!$('bttv_badges').checked) p.set('bttv_badges', 'false');
+    if (!$('ffz_badges').checked) p.set('ffz_badges', 'false');
+    if (!$('chatterino_badges').checked) p.set('chatterino_badges', 'false');
     if ($('timestamps').checked) p.set('timestamps', 'true');
     if ($('links').checked) p.set('links', 'true');
     if (!$('events').checked) p.set('events', 'false');

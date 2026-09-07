@@ -39,6 +39,11 @@ Chat = {
         showBots: ('bots' in $.QueryString ? ($.QueryString.bots.toLowerCase() === 'true') : false),
         hideCommands: ('hide_commands' in $.QueryString ? ($.QueryString.hide_commands.toLowerCase() === 'true') : false),
         hideBadges: ('hide_badges' in $.QueryString ? ($.QueryString.hide_badges.toLowerCase() === 'true') : false),
+        // Per-provider badge toggles (default on; emit *_badges=false to hide)
+        twitchBadges: ('twitch_badges' in $.QueryString ? ($.QueryString.twitch_badges.toLowerCase() !== 'false') : true),
+        bttvBadgesOn: ('bttv_badges' in $.QueryString ? ($.QueryString.bttv_badges.toLowerCase() !== 'false') : true),
+        ffzBadgesOn: ('ffz_badges' in $.QueryString ? ($.QueryString.ffz_badges.toLowerCase() !== 'false') : true),
+        chatterinoBadgesOn: ('chatterino_badges' in $.QueryString ? ($.QueryString.chatterino_badges.toLowerCase() !== 'false') : true),
         fade: ('fade' in $.QueryString ? parseInt($.QueryString.fade) : false),
         size: ('size' in $.QueryString ? parseInt($.QueryString.size) : 3),
         font: ('font' in $.QueryString ? parseInt($.QueryString.font) : 0),
@@ -587,7 +592,8 @@ Chat = {
                     var userBadge = {
                         description: badge[1].title,
                         url: 'https:' + badge[1].urls['4'],
-                        color: badge[1].color
+                        color: badge[1].color,
+                        provider: 'FFZ'
                     };
                     if (!Chat.info.userBadges[nick].includes(userBadge)) Chat.info.userBadges[nick].push(userBadge);
                 });
@@ -603,7 +609,8 @@ Chat = {
                     var userBadge = {
                         description: 'FFZ:AP Badge',
                         url: 'https://api.ffzap.com/v1/user/badge/' + userId + '/3',
-                        color: color
+                        color: color,
+                        provider: 'FFZ'
                     };
                     if (!Chat.info.userBadges[nick].includes(userBadge)) Chat.info.userBadges[nick].push(userBadge);
                 }
@@ -612,7 +619,8 @@ Chat = {
                 if (user.name === nick) {
                     var userBadge = {
                         description: user.badge.description,
-                        url: user.badge.svg
+                        url: user.badge.svg,
+                        provider: 'BTTV'
                     };
                     if (!Chat.info.userBadges[nick].includes(userBadge)) Chat.info.userBadges[nick].push(userBadge);
                 }
@@ -633,7 +641,8 @@ Chat = {
                     if (user === userId) {
                         var userBadge = {
                             description: badge.tooltip,
-                            url: badge.image3 || badge.image2 || badge.image1
+                            url: badge.image3 || badge.image2 || badge.image1,
+                            provider: 'Chatterino'
                         };
                         if (!Chat.info.userBadges[nick].includes(userBadge)) Chat.info.userBadges[nick].push(userBadge);
                     }
@@ -757,62 +766,61 @@ Chat = {
                 var perChannel = Chat.info.channelBadges[source.channel];
                 return (perChannel && perChannel[key]) || Chat.info.badges[key];
             };
-            if (Chat.info.hideBadges) {
-                if (!isKick && typeof(info.badges) === 'string' && info.badges) {
-                    info.badges.split(',').forEach(badge => {
-                        var $badge = $('<img/>');
-                        $badge.addClass('badge');
-                        badge = badge.split('/');
-                        $badge.attr('src', badgeUrl(badge[0] + ':' + badge[1]));
-                        $userInfo.append($badge);
+            // Per-provider gating. hide_badges (master) hides all third-party user
+            // badges but keeps Twitch native ones — the original behavior; the
+            // per-provider flags refine it further.
+            var showUserBadge = function(b) {
+                if (Chat.info.hideBadges) return false;
+                if (b.provider === 'FFZ') return Chat.info.ffzBadgesOn;
+                if (b.provider === 'BTTV') return Chat.info.bttvBadgesOn;
+                if (b.provider === 'Chatterino') return Chat.info.chatterinoBadgesOn;
+                return true;
+            };
+            var badges = [];
+            const priorityBadges = ['predictions', 'admin', 'global_mod', 'staff', 'twitchbot', 'broadcaster', 'moderator', 'vip'];
+            if (!isKick && Chat.info.twitchBadges && typeof(info.badges) === 'string' && info.badges) {
+                info.badges.split(',').forEach(badge => {
+                    badge = badge.split('/');
+                    var priority = (priorityBadges.includes(badge[0]) ? true : false);
+                    badges.push({
+                        description: badge[0],
+                        url: badgeUrl(badge[0] + ':' + badge[1]),
+                        priority: priority
                     });
-                }
-            } else {
-                var badges = [];
-                const priorityBadges = ['predictions', 'admin', 'global_mod', 'staff', 'twitchbot', 'broadcaster', 'moderator', 'vip'];
-                if (!isKick && typeof(info.badges) === 'string' && info.badges) {
-                    info.badges.split(',').forEach(badge => {
-                        badge = badge.split('/');
-                        var priority = (priorityBadges.includes(badge[0]) ? true : false);
-                        badges.push({
-                            description: badge[0],
-                            url: badgeUrl(badge[0] + ':' + badge[1]),
-                            priority: priority
-                        });
-                    });
-                }
-                var $modBadge;
-                badges.forEach(badge => {
-                    if (badge.priority) {
-                        var $badge = $('<img/>');
-                        $badge.addClass('badge');
-                        $badge.attr('src', badge.url);
-                        if (badge.description === 'moderator') $modBadge = $badge;
-                        $userInfo.append($badge);
-                    }
-                });
-                if (Chat.info.userBadges[nick]) {
-                    Chat.info.userBadges[nick].forEach(badge => {
-                        var $badge = $('<img/>');
-                        $badge.addClass('badge');
-                        if (badge.color) $badge.css('background-color', badge.color);
-                        if (badge.description === 'Bot' && info.mod === '1') {
-                            $badge.css('background-color', 'rgb(0, 173, 3)');
-                            if ($modBadge) $modBadge.remove();
-                        }
-                        $badge.attr('src', badge.url);
-                        $userInfo.append($badge);
-                    });
-                }
-                badges.forEach(badge => {
-                    if (!badge.priority) {
-                        var $badge = $('<img/>');
-                        $badge.addClass('badge');
-                        $badge.attr('src', badge.url);
-                        $userInfo.append($badge);
-                    }
                 });
             }
+            var $modBadge;
+            badges.forEach(badge => {
+                if (badge.priority) {
+                    var $badge = $('<img/>');
+                    $badge.addClass('badge');
+                    $badge.attr('src', badge.url);
+                    if (badge.description === 'moderator') $modBadge = $badge;
+                    $userInfo.append($badge);
+                }
+            });
+            if (Chat.info.userBadges[nick]) {
+                Chat.info.userBadges[nick].forEach(badge => {
+                    if (!showUserBadge(badge)) return;
+                    var $badge = $('<img/>');
+                    $badge.addClass('badge');
+                    if (badge.color) $badge.css('background-color', badge.color);
+                    if (badge.description === 'Bot' && info.mod === '1') {
+                        $badge.css('background-color', 'rgb(0, 173, 3)');
+                        if ($modBadge) $modBadge.remove();
+                    }
+                    $badge.attr('src', badge.url);
+                    $userInfo.append($badge);
+                });
+            }
+            badges.forEach(badge => {
+                if (!badge.priority) {
+                    var $badge = $('<img/>');
+                    $badge.addClass('badge');
+                    $badge.attr('src', badge.url);
+                    $userInfo.append($badge);
+                }
+            });
 
             // Writing username
             var $username = $('<span></span>');
