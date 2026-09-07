@@ -18,8 +18,18 @@
 
 Chat = {
     info: {
-        channel: null,
-        channelID: null,
+        channel: null,          // primary Twitch channel (first in the list), or null for Kick-only
+        channels: [],           // all joined Twitch channels
+        kickChannels: [],       // all joined Kick channels
+        channelIDs: {},         // twitch login -> numeric room id (from ROOMSTATE)
+        roomNames: {},          // twitch room id -> login (for Shared Chat labels)
+        roomStates: {},         // twitch login -> last seen mode flags
+        multiSource: false,     // more than one chat source -> show per-message source chips
+        mentionName: null,
+        channelID: null,        // primary channel's id (kept for back-compat)
+        theme: ('theme' in $.QueryString ? $.QueryString.theme.toLowerCase() : false),
+        avatars: ('avatars' in $.QueryString ? ($.QueryString.avatars.toLowerCase() === 'true') : false),
+        userAvatars: {},
         animate: ('animate' in $.QueryString ? ($.QueryString.animate.toLowerCase() === 'true') : false),
         showBots: ('bots' in $.QueryString ? ($.QueryString.bots.toLowerCase() === 'true') : false),
         hideCommands: ('hide_commands' in $.QueryString ? ($.QueryString.hide_commands.toLowerCase() === 'true') : false),
@@ -46,6 +56,7 @@ Chat = {
         paints: ('paints' in $.QueryString ? ($.QueryString.paints.toLowerCase() === 'true') : true),
         filter: ('filter' in $.QueryString ? $.QueryString.filter.toLowerCase().split(',').filter(function(w) { return w.trim().length > 0; }) : false),
         seventvEmoteSetID: null,
+        seventvEmoteSetIDs: {}, // twitch login -> 7TV emote set id
         seventvPaints: {},
         seventvBadgeDefs: {},
         seventvUserCosmetics: {},
@@ -53,6 +64,7 @@ Chat = {
         userPronouns: {},
         emotes: {},
         badges: {},
+        channelBadges: {},      // twitch login -> {set:version -> url}
         userBadges: {},
         ffzapBadges: null,
         bttvBadges: null,
@@ -64,61 +76,75 @@ Chat = {
         bots: ['streamelements', 'streamlabs', 'nightbot', 'moobot', 'fossabot']
     },
 
-    loadEmotes: function(channelID) {
-        Chat.info.emotes = {};
-        // Load BTTV, FFZ and 7TV emotes (global sets only when no channel ID, e.g. demo mode)
-        (channelID ? ['emotes/global', 'users/twitch/' + encodeURIComponent(channelID)] : ['emotes/global']).forEach(endpoint => {
-            $.getJSON('https://api.betterttv.net/3/cached/frankerfacez/' + endpoint).done(function(res) {
-                res.forEach(emote => {
-                    if (emote.images['4x']) {
-                        var imageUrl = emote.images['4x'];
-                        var upscale = false;
-                    } else {
-                        var imageUrl = emote.images['2x'] || emote.images['1x'];
-                        var upscale = true;
-                    }
-                    Chat.info.emotes[emote.code] = {
-                        id: emote.id,
-                        image: imageUrl,
-                        upscale: upscale
-                    };
-                });
-            });
+    // Global BTTV/FFZ/7TV sets — loaded once; channel sets merge in additively
+    loadGlobalEmotes: function() {
+        $.getJSON('https://api.betterttv.net/3/cached/frankerfacez/emotes/global').done(function(res) {
+            res.forEach(Chat.addFFZEmote);
         });
-
-        (channelID ? ['emotes/global', 'users/twitch/' + encodeURIComponent(channelID)] : ['emotes/global']).forEach(endpoint => {
-            $.getJSON('https://api.betterttv.net/3/cached/' + endpoint).done(function(res) {
-                if (!Array.isArray(res)) {
-                    res = res.channelEmotes.concat(res.sharedEmotes);
-                }
-                res.forEach(emote => {
-                    Chat.info.emotes[emote.code] = {
-                        id: emote.id,
-                        image: 'https://cdn.betterttv.net/emote/' + emote.id + '/3x',
-                        zeroWidth: ["5e76d338d6581c3724c0f0b2", "5e76d399d6581c3724c0f0b8", "567b5b520e984428652809b6", "5849c9a4f52be01a7ee5f79d", "567b5c080e984428652809ba", "567b5dc00e984428652809bd", "58487cc6f52be01a7ee5f205", "5849c9c8f52be01a7ee5f79e"].includes(emote.id) // cvHazmat, cvMask, SoSnowy, IceCold, CandyCane, ReinDeer, SantaHat, TopHat
-                    };
-                });
-            });
+        $.getJSON('https://api.betterttv.net/3/cached/emotes/global').done(function(res) {
+            res.forEach(Chat.addBTTVEmote);
         });
-
         // 7TV v3 API (v2 was shut down)
         $.getJSON('https://7tv.io/v3/emote-sets/global').done(function(res) {
             (res.emotes || []).forEach(Chat.addSevenTVEmote);
         });
-        if (channelID) {
-            $.getJSON('https://7tv.io/v3/users/twitch/' + encodeURIComponent(channelID))
-                .done(function(res) {
-                    if (res.emote_set) {
-                        Chat.info.seventvEmoteSetID = res.emote_set.id;
-                        (res.emote_set.emotes || []).forEach(Chat.addSevenTVEmote);
-                    }
-                    if (Chat.sevenTVStarted) Chat.resubscribeSevenTVSet();
-                    else Chat.startSevenTV();
-                })
-                .fail(function() {
-                    Chat.startSevenTV();
-                });
+    },
+
+    loadChannelEmotes: function(channelID, login) {
+        $.getJSON('https://api.betterttv.net/3/cached/frankerfacez/users/twitch/' + encodeURIComponent(channelID)).done(function(res) {
+            res.forEach(Chat.addFFZEmote);
+        });
+        $.getJSON('https://api.betterttv.net/3/cached/users/twitch/' + encodeURIComponent(channelID)).done(function(res) {
+            if (!Array.isArray(res)) {
+                res = res.channelEmotes.concat(res.sharedEmotes);
+            }
+            res.forEach(Chat.addBTTVEmote);
+        });
+        $.getJSON('https://7tv.io/v3/users/twitch/' + encodeURIComponent(channelID))
+            .done(function(res) {
+                if (res.emote_set) {
+                    Chat.info.seventvEmoteSetIDs[login] = res.emote_set.id;
+                    if (login === Chat.info.channel) Chat.info.seventvEmoteSetID = res.emote_set.id;
+                    (res.emote_set.emotes || []).forEach(Chat.addSevenTVEmote);
+                }
+                Chat.startSevenTV();
+                Chat.ensureSevenTVSubscriptions();
+            })
+            .fail(function() {
+                Chat.startSevenTV();
+            });
+    },
+
+    // Reload everything (mods' !refreshoverlay)
+    refreshEmotes: function() {
+        Chat.info.emotes = {};
+        Chat.loadGlobalEmotes();
+        Object.entries(Chat.info.channelIDs).forEach(function(pair) {
+            Chat.loadChannelEmotes(pair[1], pair[0]);
+        });
+    },
+
+    addFFZEmote: function(emote) {
+        if (emote.images['4x']) {
+            var imageUrl = emote.images['4x'];
+            var upscale = false;
+        } else {
+            var imageUrl = emote.images['2x'] || emote.images['1x'];
+            var upscale = true;
         }
+        Chat.info.emotes[emote.code] = {
+            id: emote.id,
+            image: imageUrl,
+            upscale: upscale
+        };
+    },
+
+    addBTTVEmote: function(emote) {
+        Chat.info.emotes[emote.code] = {
+            id: emote.id,
+            image: 'https://cdn.betterttv.net/emote/' + emote.id + '/3x',
+            zeroWidth: ["5e76d338d6581c3724c0f0b2", "5e76d399d6581c3724c0f0b8", "567b5b520e984428652809b6", "5849c9a4f52be01a7ee5f79d", "567b5c080e984428652809ba", "567b5dc00e984428652809bd", "58487cc6f52be01a7ee5f205", "5849c9c8f52be01a7ee5f79e"].includes(emote.id) // cvHazmat, cvMask, SoSnowy, IceCold, CandyCane, ReinDeer, SantaHat, TopHat
+        };
     },
 
     addSevenTVEmote: function(emote) {
@@ -137,25 +163,20 @@ Chat = {
         };
     },
 
-    // 7TV EventAPI: live emote updates, name paints and 7TV badges
+    // 7TV EventAPI: live emote updates, name paints and 7TV badges (all joined channels)
     startSevenTV: function() {
-        if (Chat.sevenTVStarted || !Chat.info.channelID || Chat.info.demo) return;
+        if (Chat.sevenTVStarted || Chat.info.demo) return;
         Chat.sevenTVStarted = true;
+        Chat.sevenTVSubscribedSets = [];
+        Chat.sevenTVSubscribedRooms = [];
         var connect = function() {
             var ws;
             try { ws = new WebSocket('wss://events.7tv.io/v3'); } catch (e) { return; }
             Chat.sevenTVSocket = ws;
             ws.onopen = function() {
-                var sub = function(type, condition) { ws.send(JSON.stringify({ op: 35, d: { type: type, condition: condition } })); };
-                if (Chat.info.seventvEmoteSetID) {
-                    sub('emote_set.update', { object_id: Chat.info.seventvEmoteSetID });
-                    Chat.sevenTVSubscribedSet = Chat.info.seventvEmoteSetID;
-                }
-                if (Chat.info.paints) {
-                    var cond = { ctx: 'channel', platform: 'TWITCH', id: String(Chat.info.channelID) };
-                    sub('cosmetic.create', cond);
-                    sub('entitlement.create', cond);
-                }
+                Chat.sevenTVSubscribedSets = [];
+                Chat.sevenTVSubscribedRooms = [];
+                Chat.ensureSevenTVSubscriptions();
             };
             ws.onmessage = function(e) {
                 var msg;
@@ -163,19 +184,39 @@ Chat = {
                 if (msg.op !== 0 || !msg.d || !msg.d.body) return;
                 Chat.handleSevenTVEvent(msg.d.type, msg.d.body);
             };
-            ws.onclose = function() { Chat.sevenTVSubscribedSet = null; setTimeout(connect, 5000); };
+            ws.onclose = function() { setTimeout(connect, 5000); };
         };
         connect();
     },
 
-    // Re-point the live emote_set subscription when the channel's active set changes
-    // (e.g. !refreshoverlay after the streamer swapped sets on 7tv.app)
-    resubscribeSevenTVSet: function() {
+    // Subscribe any emote sets / channel rooms we know about but haven't subscribed yet.
+    // Called on socket open, whenever a set id is (re)learned, and per new ROOMSTATE.
+    ensureSevenTVSubscriptions: function() {
         var ws = Chat.sevenTVSocket;
-        if (!ws || ws.readyState !== 1 || Chat.sevenTVSubscribedSet === Chat.info.seventvEmoteSetID) return;
-        if (Chat.sevenTVSubscribedSet) ws.send(JSON.stringify({ op: 36, d: { type: 'emote_set.update', condition: { object_id: Chat.sevenTVSubscribedSet } } }));
-        if (Chat.info.seventvEmoteSetID) ws.send(JSON.stringify({ op: 35, d: { type: 'emote_set.update', condition: { object_id: Chat.info.seventvEmoteSetID } } }));
-        Chat.sevenTVSubscribedSet = Chat.info.seventvEmoteSetID;
+        if (!ws || ws.readyState !== 1) return;
+        var sub = function(type, condition) { ws.send(JSON.stringify({ op: 35, d: { type: type, condition: condition } })); };
+        // Unsubscribe sets no longer active (streamer swapped sets + !refreshoverlay),
+        // so edits to the abandoned set stop mutating our emote map
+        var desired = Object.values(Chat.info.seventvEmoteSetIDs);
+        Chat.sevenTVSubscribedSets.slice().forEach(function(setId) {
+            if (desired.indexOf(setId) > -1) return;
+            ws.send(JSON.stringify({ op: 36, d: { type: 'emote_set.update', condition: { object_id: setId } } }));
+            Chat.sevenTVSubscribedSets.splice(Chat.sevenTVSubscribedSets.indexOf(setId), 1);
+        });
+        desired.forEach(function(setId) {
+            if (Chat.sevenTVSubscribedSets.indexOf(setId) > -1) return;
+            sub('emote_set.update', { object_id: setId });
+            Chat.sevenTVSubscribedSets.push(setId);
+        });
+        if (Chat.info.paints) {
+            Object.values(Chat.info.channelIDs).forEach(function(roomId) {
+                if (Chat.sevenTVSubscribedRooms.indexOf(roomId) > -1) return;
+                var cond = { ctx: 'channel', platform: 'TWITCH', id: String(roomId) };
+                sub('cosmetic.create', cond);
+                sub('entitlement.create', cond);
+                Chat.sevenTVSubscribedRooms.push(roomId);
+            });
+        }
     },
 
     handleSevenTVEvent: function(type, body) {
@@ -260,18 +301,32 @@ Chat = {
             .fail(function() { Chat.info.userPronouns[nick] = false; });
     },
 
-    // Everything that needs the numeric channel ID, resolved from the IRC ROOMSTATE tag
-    loadChannelData: function(channelID) {
-        Chat.loadEmotes(channelID);
+    // Everything that needs a channel's numeric ID, resolved from its IRC ROOMSTATE tag
+    loadChannelData: function(channelID, login) {
+        Chat.loadChannelEmotes(channelID, login);
+        Chat.ensureSevenTVSubscriptions();
 
-        $.getJSON('https://api.frankerfacez.com/v1/_room/id/' + encodeURIComponent(channelID)).done(function(res) {
-            if (res.room.moderator_badge) {
-                Chat.info.badges['moderator:1'] = 'https://cdn.frankerfacez.com/room-badge/mod/' + Chat.info.channel + '/4/rounded';
-            }
-            if (res.room.vip_badge) {
-                Chat.info.badges['vip:1'] = 'https://cdn.frankerfacez.com/room-badge/vip/' + Chat.info.channel + '/4';
-            }
-        });
+        // FFZ custom mod/VIP badge art: primary channel only (one badge slot each)
+        if (login === Chat.info.channel) {
+            $.getJSON('https://api.frankerfacez.com/v1/_room/id/' + encodeURIComponent(channelID)).done(function(res) {
+                if (res.room.moderator_badge) {
+                    Chat.info.badges['moderator:1'] = 'https://cdn.frankerfacez.com/room-badge/mod/' + Chat.info.channel + '/4/rounded';
+                }
+                if (res.room.vip_badge) {
+                    Chat.info.badges['vip:1'] = 'https://cdn.frankerfacez.com/room-badge/vip/' + Chat.info.channel + '/4';
+                }
+            });
+        }
+    },
+
+    loadUserAvatar: function(nick) {
+        Chat.info.userAvatars[nick] = true; // pending
+        $.getJSON('https://api.ivr.fi/v2/twitch/user?login=' + encodeURIComponent(nick))
+            .done(function(res) {
+                var logo = res && res[0] && res[0].logo;
+                Chat.info.userAvatars[nick] = (typeof logo === 'string' && /^https:\/\//.test(logo) && !/["'<>\s\\]/.test(logo)) ? logo : false;
+            })
+            .fail(function() { Chat.info.userAvatars[nick] = false; });
     },
 
     load: function(callback) {
@@ -319,27 +374,42 @@ Chat = {
         if (Chat.info.hideUsernames) {
             extraCSS += '.nick, .colon { display: none; }\n';
         }
+        var themes = {
+            bubbles: '.chat_line { background: rgba(255,255,255,.08); border-radius: 14px; padding: 5px 12px; margin: 4px 0; width: fit-content; max-width: 95%; }\n',
+            compact: '#chat_container { padding: 4px; } .chat_line { margin: 0; line-height: 1.25; font-size: 0.9em; } img.emote, img.emoji { zoom: 0.85; }\n',
+            right: '.chat_line { text-align: right; } .chat_line.event_line { box-shadow: inset -3px 0 0 #b8b8be; }\n'
+        };
+        if (Chat.info.theme && themes[Chat.info.theme]) {
+            extraCSS += themes[Chat.info.theme];
+            if (Chat.info.theme === 'right') extraCSS += '.chat_line { margin-left: auto; }\n';
+        }
         if (extraCSS) {
             $('<style></style>').text(extraCSS).appendTo('head');
         }
 
         // Twitch badges via IVR (badges.twitch.tv and Kraken are gone; Helix needs auth).
         // Channel badges load after global so they override. Chat works fine if IVR is down.
-        $.getJSON('https://api.ivr.fi/v2/twitch/badges/global')
-            .done(function(global) {
-                global.forEach(set => {
-                    set.versions.forEach(v => {
-                        Chat.info.badges[set.set_id + ':' + v.id] = v.image_url_4x;
-                    });
-                });
-                $.getJSON('https://api.ivr.fi/v2/twitch/badges/channel?login=' + encodeURIComponent(Chat.info.channel)).done(function(channel) {
-                    channel.forEach(set => {
+        if (Chat.info.channels.length) {
+            $.getJSON('https://api.ivr.fi/v2/twitch/badges/global')
+                .done(function(global) {
+                    global.forEach(set => {
                         set.versions.forEach(v => {
                             Chat.info.badges[set.set_id + ':' + v.id] = v.image_url_4x;
                         });
                     });
+                    // Channel badge art (sub tiers, bits) differs per channel — keep separate maps
+                    Chat.info.channels.forEach(function(login) {
+                        $.getJSON('https://api.ivr.fi/v2/twitch/badges/channel?login=' + encodeURIComponent(login)).done(function(channel) {
+                            Chat.info.channelBadges[login] = {};
+                            channel.forEach(set => {
+                                set.versions.forEach(v => {
+                                    Chat.info.channelBadges[login][set.set_id + ':' + v.id] = v.image_url_4x;
+                                });
+                            });
+                        });
+                    });
                 });
-            });
+        }
 
         if (!Chat.info.hideBadges) {
             $.getJSON('https://api.ffzap.com/v1/supporters')
@@ -479,18 +549,21 @@ Chat = {
         });
     },
 
-    write: function(nick, info, message) {
+    write: function(nick, info, message, source) {
         if (info) {
+            source = source || { platform: 'twitch', channel: Chat.info.channel };
+            var isKick = source.platform === 'kick';
             var $chatLine = $('<div></div>');
             $chatLine.addClass('chat_line');
             $chatLine.attr('data-nick', nick);
             $chatLine.attr('data-time', Date.now());
             $chatLine.attr('data-id', info.id);
+            $chatLine.attr('data-source', (isKick ? 'kick:' : 'twitch:') + (source.channel || ''));
             if (Chat.info.highlights) {
                 if (info['first-msg'] === '1') $chatLine.addClass('first_msg');
                 if (info['msg-id'] === 'highlighted-message') $chatLine.addClass('highlighted');
             }
-            if (Chat.info.mention && Chat.info.channel && message.toLowerCase().indexOf('@' + Chat.info.channel) > -1) {
+            if (Chat.info.mention && Chat.info.mentionName && message.toLowerCase().indexOf('@' + Chat.info.mentionName) > -1) {
                 $chatLine.addClass('mentioned');
             }
             var $userInfo = $('<span></span>');
@@ -500,32 +573,63 @@ Chat = {
                 $userInfo.append($('<span></span>').addClass('timestamp')
                     .text(('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2)));
             }
-            if (Chat.info.pronouns) {
+            if (Chat.info.multiSource) {
+                $userInfo.append($('<span></span>')
+                    .addClass('source_tag ' + (isKick ? 'source_kick' : 'source_twitch'))
+                    .text(source.channel || (isKick ? 'kick' : 'twitch')));
+            }
+            // Shared Chat (Twitch collab sessions): label messages relayed from another room
+            if (!isKick && typeof info['source-room-id'] === 'string' && info['source-room-id'] &&
+                info['source-room-id'] !== Chat.info.channelIDs[source.channel]) {
+                var srcName = Chat.info.roomNames[info['source-room-id']];
+                $userInfo.append($('<span></span>').addClass('source_tag source_shared').text(srcName || 'shared'));
+                if (srcName === undefined) Chat.resolveRoomName(info['source-room-id']);
+            }
+            if (Chat.info.avatars && !isKick) {
+                var avatar = Chat.info.userAvatars[nick];
+                if (typeof avatar === 'string') $userInfo.append($('<img/>').addClass('avatar').attr('src', avatar));
+            }
+            if (Chat.info.pronouns && !isKick) {
                 var pronoun = Chat.info.userPronouns[nick];
                 if (typeof pronoun === 'string') $userInfo.append($('<span></span>').addClass('pronoun').text(pronoun));
             }
+            // Kick badges arrive as typed labels, not image URLs — render as colored chips
+            if (isKick && !Chat.info.hideBadges && Array.isArray(info.kickBadges)) {
+                var kickBadgeStyles = { broadcaster: ['B', '#e9113c'], moderator: ['M', '#00c7ac'], vip: ['V', '#ff9d00'], og: ['OG', '#ffc700'], founder: ['F', '#ff5c00'], verified: ['✓', '#1e90ff'], subscriber: ['S', '#9147ff'], sub_gifter: ['G', '#53fc18'], staff: ['ST', '#53fc18'] };
+                info.kickBadges.forEach(function(b) {
+                    var style = b && kickBadgeStyles[b.type];
+                    if (!style) return;
+                    $userInfo.append($('<span></span>').addClass('kick_badge').css('background-color', style[1])
+                        .attr('title', b.text || b.type).text(style[0]));
+                });
+            }
 
-            // Writing badges (badges/emotes tags are often present but empty — '' must skip)
+            // Writing badges (badges/emotes tags are often present but empty — '' must skip).
+            // Channel-specific art (sub tiers, bits) comes from the message's source channel.
+            var badgeUrl = function(key) {
+                var perChannel = Chat.info.channelBadges[source.channel];
+                return (perChannel && perChannel[key]) || Chat.info.badges[key];
+            };
             if (Chat.info.hideBadges) {
-                if (typeof(info.badges) === 'string' && info.badges) {
+                if (!isKick && typeof(info.badges) === 'string' && info.badges) {
                     info.badges.split(',').forEach(badge => {
                         var $badge = $('<img/>');
                         $badge.addClass('badge');
                         badge = badge.split('/');
-                        $badge.attr('src', Chat.info.badges[badge[0] + ':' + badge[1]]);
+                        $badge.attr('src', badgeUrl(badge[0] + ':' + badge[1]));
                         $userInfo.append($badge);
                     });
                 }
             } else {
                 var badges = [];
                 const priorityBadges = ['predictions', 'admin', 'global_mod', 'staff', 'twitchbot', 'broadcaster', 'moderator', 'vip'];
-                if (typeof(info.badges) === 'string' && info.badges) {
+                if (!isKick && typeof(info.badges) === 'string' && info.badges) {
                     info.badges.split(',').forEach(badge => {
                         badge = badge.split('/');
                         var priority = (priorityBadges.includes(badge[0]) ? true : false);
                         badges.push({
                             description: badge[0],
-                            url: Chat.info.badges[badge[0] + ':' + badge[1]],
+                            url: badgeUrl(badge[0] + ':' + badge[1]),
                             priority: priority
                         });
                     });
@@ -577,7 +681,7 @@ Chat = {
             $username.text(typeof info['display-name'] === 'string' && info['display-name'] ? info['display-name'] : nick);
 
             // 7TV cosmetics (paint + badge) from the EventAPI, keyed by login or user id
-            if (Chat.info.paints) {
+            if (Chat.info.paints && !isKick) {
                 var cosmetics = Chat.info.seventvUserCosmetics[nick] || Chat.info.seventvUserCosmetics[info['user-id']];
                 if (cosmetics) {
                     var paint = cosmetics.PAINT && Chat.info.seventvPaints[cosmetics.PAINT];
@@ -640,6 +744,14 @@ Chat = {
                 // attribute values, which would corrupt an href containing one
                 message = message.replace(/(https?:\/\/[^\s<>"'\u0080-\uFFFF]+)/gi, function(url) {
                     return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+                });
+            }
+
+            // Kick emotes arrive inline as [emote:id:name] tokens (id digits only -> safe in src).
+            // Must run AFTER linkify, which would otherwise wrap the injected src URL in an anchor.
+            if (isKick) {
+                message = message.replace(/\[emote:(\d+):[^\]]*\]/g, function(m, emoteId) {
+                    return '<img class="emote" src="https://files.kick.com/emotes/' + emoteId + '/fullsize" />';
                 });
             }
 
@@ -715,9 +827,13 @@ Chat = {
         Chat.info.lines.push($line.wrap('<div>').parent().html());
     },
 
-    clearChat: function(nick) {
+    // Remove a user's lines, scoped to one channel/platform so a timeout in channel A
+    // doesn't erase the same user's (or a same-named Kick user's) messages elsewhere
+    clearChat: function(nick, sourceKey) {
         setTimeout(function() {
-            $('.chat_line[data-nick=' + nick + ']').remove();
+            var sel = '.chat_line[data-nick="' + String(nick).replace(/["\\]/g, '') + '"]';
+            if (sourceKey) sel += '[data-source="' + String(sourceKey).replace(/["\\]/g, '') + '"]';
+            $(sel).remove();
         }, 200);
     },
 
@@ -731,8 +847,12 @@ Chat = {
     demo: function() {
         $(document).prop('title', 'kChat • preview');
         Chat.info.channel = 'demo';
+        Chat.info.channels = ['demo'];
+        Chat.info.mentionName = 'demo';
+        // Show source chips in the preview when the configured setup is multi-source
+        Chat.info.multiSource = ('kick' in $.QueryString && $.QueryString.kick.length > 0) || ($.QueryString.channel || '').indexOf(',') > -1;
         Chat.load(function() {
-            Chat.loadEmotes(null);
+            Chat.loadGlobalEmotes();
             var users = [
                 ['PixelPal', '#FF69B4'],
                 ['StreamFan42', '#1E90FF'],
@@ -760,110 +880,274 @@ Chat = {
                 Chat.write(u[0].toLowerCase(), tags, msg);
                 if (i === 2) Chat.writeEvent('⭐', 'StreamFan42 subscribed at Tier 1. They\'ve subscribed for 3 months!', 'resub');
                 if (i === 4) Chat.writeEvent('🎉', '12 raiders from PixelPal have joined!', 'raid');
+                if (i === 3 && Chat.info.multiSource) {
+                    Chat.write('kicker', { id: 'demo-k' + i, color: '#53fc18', 'display-name': 'KickChatter', kickBadges: [{ type: 'og', text: 'OG' }] }, 'hi from the green side', { platform: 'kick', channel: 'demo' });
+                }
                 i++;
                 setTimeout(tick, i < 5 ? 600 : 2500);
             }, 1200);
         });
     },
 
-    connect: function(channel) {
-        Chat.info.channel = channel;
-        var title = $(document).prop('title');
-        $(document).prop('title', title + Chat.info.channel);
+    // Shared Chat labels: resolve an unknown room id to its login via IVR
+    resolveRoomName: function(roomId) {
+        Chat.info.roomNames[roomId] = null; // pending
+        $.getJSON('https://api.ivr.fi/v2/twitch/user?id=' + encodeURIComponent(roomId))
+            .done(function(res) {
+                Chat.info.roomNames[roomId] = (res && res[0] && res[0].login) || 'shared';
+            })
+            .fail(function() { Chat.info.roomNames[roomId] = 'shared'; });
+    },
 
-        Chat.load(function() {
-            console.log('kChat: Connecting to IRC server...');
-            var socket = new ReconnectingWebSocket('wss://irc-ws.chat.twitch.tv', 'irc', { reconnectInterval: 2000 });
+    // Chat-mode notices (emote-only, sub-only, followers-only, slow, unique) from ROOMSTATE diffs
+    handleRoomstateModes: function(login, tags) {
+        // Twitch sends PARTIAL ROOMSTATEs on changes — merge into the stored baseline
+        // rather than replacing it, or a later full ROOMSTATE (reconnect) re-announces
+        var prev = Chat.info.roomStates[login];
+        var state = prev ? Object.assign({}, prev) : {};
+        ['emote-only', 'subs-only', 'followers-only', 'slow', 'r9k'].forEach(function(key) {
+            if (tags[key] !== undefined) state[key] = tags[key];
+        });
+        Chat.info.roomStates[login] = state;
+        if (!prev || !Chat.info.events) return; // first ROOMSTATE is the baseline, not a change
+        var prefix = Chat.info.multiSource ? login + ': ' : '';
+        if (state['emote-only'] !== prev['emote-only'] && state['emote-only'] !== undefined)
+            Chat.writeEvent('🔒', prefix + 'Emote-only chat ' + (state['emote-only'] === '1' ? 'enabled' : 'disabled'), 'mode');
+        if (state['subs-only'] !== prev['subs-only'] && state['subs-only'] !== undefined)
+            Chat.writeEvent('🔒', prefix + 'Subscribers-only chat ' + (state['subs-only'] === '1' ? 'enabled' : 'disabled'), 'mode');
+        if (state['followers-only'] !== prev['followers-only'] && state['followers-only'] !== undefined)
+            Chat.writeEvent('🔒', prefix + (state['followers-only'] === '-1' ? 'Followers-only chat disabled' : 'Followers-only chat enabled' + (state['followers-only'] !== '0' ? ' (' + state['followers-only'] + 'm)' : '')), 'mode');
+        if (state['slow'] !== prev['slow'] && state['slow'] !== undefined)
+            Chat.writeEvent('🐌', prefix + (state['slow'] === '0' ? 'Slow mode disabled' : 'Slow mode: ' + state['slow'] + 's'), 'mode');
+        if (state['r9k'] !== prev['r9k'] && state['r9k'] !== undefined)
+            Chat.writeEvent('🔒', prefix + 'Unique-messages mode ' + (state['r9k'] === '1' ? 'enabled' : 'disabled'), 'mode');
+    },
 
-            socket.onopen = function() {
-                console.log('kChat: Connected');
-                socket.send('PASS blah\r\n');
-                socket.send('NICK justinfan' + Math.floor(Math.random() * 99999) + '\r\n');
-                socket.send('CAP REQ :twitch.tv/commands twitch.tv/tags\r\n');
-                socket.send('JOIN #' + Chat.info.channel + '\r\n');
-            };
+    connectIRC: function() {
+        console.log('kChat: Connecting to IRC server...');
+        var socket = new ReconnectingWebSocket('wss://irc-ws.chat.twitch.tv', 'irc', { reconnectInterval: 2000 });
 
-            socket.onclose = function() {
-                console.log('kChat: Disconnected');
-            };
+        socket.onopen = function() {
+            console.log('kChat: Connected');
+            socket.send('PASS blah\r\n');
+            socket.send('NICK justinfan' + Math.floor(Math.random() * 99999) + '\r\n');
+            socket.send('CAP REQ :twitch.tv/commands twitch.tv/tags\r\n');
+            Chat.info.channels.forEach(function(c) { socket.send('JOIN #' + c + '\r\n'); });
+        };
 
-            socket.onmessage = function(data) {
-                data.data.split('\r\n').forEach(line => {
-                    if (!line) return;
-                    var message = window.parseIRC(line);
-                    if (!message.command) return;
+        socket.onclose = function() {
+            console.log('kChat: Disconnected');
+        };
 
-                    switch (message.command) {
-                        case "PING":
-                            socket.send('PONG ' + message.params[0]);
-                            return;
-                        case "JOIN":
-                            console.log('kChat: Joined channel #' + Chat.info.channel);
-                            return;
-                        case "ROOMSTATE":
-                            // The room-id tag replaces the retired Kraken user lookup
-                            if (!Chat.info.channelID && message.tags && message.tags['room-id']) {
-                                Chat.info.channelID = message.tags['room-id'];
-                                console.log('kChat: Channel ID is ' + Chat.info.channelID);
-                                Chat.loadChannelData(Chat.info.channelID);
-                            }
-                            return;
-                        case "USERNOTICE":
-                            if (!Chat.info.events || !message.tags) return;
-                            var eventIcons = { sub: '⭐', resub: '⭐', subgift: '🎁', submysterygift: '🎁', giftpaidupgrade: '⭐', primepaidupgrade: '⭐', anongiftpaidupgrade: '⭐', raid: '🎉', announcement: '📣' };
-                            var eventId = message.tags['msg-id'];
-                            if (!(eventId in eventIcons)) return;
-                            var sysMsg = typeof message.tags['system-msg'] === 'string' ? message.tags['system-msg'] : '';
-                            if (eventId === 'announcement' && !sysMsg) {
-                                var announcer = (typeof message.tags['display-name'] === 'string' && message.tags['display-name']) || (typeof message.tags.login === 'string' ? message.tags.login : '');
-                                sysMsg = announcer + ' made an announcement';
-                            }
-                            Chat.writeEvent(eventIcons[eventId], sysMsg, eventId);
-                            if (message.params[1] && typeof message.tags.login === 'string' && Chat.passesFilters(message.tags.login, message.params[1])) {
-                                Chat.write(message.tags.login, message.tags, message.params[1]);
-                            }
-                            return;
-                        case "CLEARMSG":
-                            if (message.tags) Chat.clearMessage(message.tags['target-msg-id']);
-                            return;
-                        case "CLEARCHAT":
-                            if (message.params[1]) Chat.clearChat(message.params[1]);
-                            return;
-                        case "PRIVMSG":
-                            if (message.params[0] !== '#' + channel || !message.params[1]) return;
-                            var nick = message.prefix.split('@')[0].split('!')[0];
+        socket.onmessage = function(data) {
+            data.data.split('\r\n').forEach(line => {
+                if (!line) return;
+                var message = window.parseIRC(line);
+                if (!message || !message.command) return;
+                var chan = message.params[0] && message.params[0].charAt(0) === '#' ? message.params[0].slice(1) : null;
 
-                            if (message.params[1].toLowerCase() === "!refreshoverlay" && typeof(message.tags.badges) === 'string') {
-                                var flag = false;
-                                message.tags.badges.split(',').forEach(badge => {
-                                    badge = badge.split('/');
-                                    if (badge[0] === "moderator" || badge[0] === "broadcaster") {
-                                        flag = true;
-                                        return;
-                                    }
-                                });
-                                if (flag && Chat.info.channelID) {
-                                    Chat.loadEmotes(Chat.info.channelID);
-                                    console.log('kChat: Refreshing emotes...');
+                switch (message.command) {
+                    case "PING":
+                        socket.send('PONG ' + message.params[0]);
+                        return;
+                    case "JOIN":
+                        console.log('kChat: Joined channel ' + message.params[0]);
+                        return;
+                    case "ROOMSTATE":
+                        // The room-id tag replaces the retired Kraken user lookup
+                        if (!message.tags || !chan || Chat.info.channels.indexOf(chan) === -1) return;
+                        if (typeof message.tags['room-id'] === 'string' && !Chat.info.channelIDs[chan]) {
+                            Chat.info.channelIDs[chan] = message.tags['room-id'];
+                            Chat.info.roomNames[message.tags['room-id']] = chan;
+                            if (chan === Chat.info.channel) Chat.info.channelID = message.tags['room-id'];
+                            console.log('kChat: Channel ID for ' + chan + ' is ' + message.tags['room-id']);
+                            Chat.loadChannelData(message.tags['room-id'], chan);
+                        }
+                        Chat.handleRoomstateModes(chan, message.tags);
+                        return;
+                    case "USERNOTICE":
+                        if (!Chat.info.events || !message.tags || !chan || Chat.info.channels.indexOf(chan) === -1) return;
+                        var eventIcons = { sub: '⭐', resub: '⭐', subgift: '🎁', submysterygift: '🎁', giftpaidupgrade: '⭐', primepaidupgrade: '⭐', anongiftpaidupgrade: '⭐', raid: '🎉', announcement: '📣' };
+                        var eventId = message.tags['msg-id'];
+                        if (!(eventId in eventIcons)) return;
+                        var sysMsg = typeof message.tags['system-msg'] === 'string' ? message.tags['system-msg'] : '';
+                        if (eventId === 'announcement' && !sysMsg) {
+                            var announcer = (typeof message.tags['display-name'] === 'string' && message.tags['display-name']) || (typeof message.tags.login === 'string' ? message.tags.login : '');
+                            sysMsg = announcer + ' made an announcement';
+                        }
+                        if (Chat.info.multiSource && sysMsg) sysMsg = chan + ': ' + sysMsg;
+                        Chat.writeEvent(eventIcons[eventId], sysMsg, eventId);
+                        if (message.params[1] && typeof message.tags.login === 'string' && Chat.passesFilters(message.tags.login, message.params[1])) {
+                            Chat.write(message.tags.login, message.tags, message.params[1], { platform: 'twitch', channel: chan });
+                        }
+                        return;
+                    case "CLEARMSG":
+                        if (message.tags) Chat.clearMessage(message.tags['target-msg-id']);
+                        return;
+                    case "CLEARCHAT":
+                        if (message.params[1] && chan && Chat.info.channels.indexOf(chan) > -1) Chat.clearChat(message.params[1], 'twitch:' + chan);
+                        return;
+                    case "PRIVMSG":
+                        if (!chan || Chat.info.channels.indexOf(chan) === -1 || !message.params[1]) return;
+
+                        // Shared Chat between two channels we've BOTH joined delivers every
+                        // message twice; drop the relayed copy (the native room renders it)
+                        var srcRoom = message.tags && message.tags['source-room-id'];
+                        if (typeof srcRoom === 'string' && srcRoom && Chat.info.channelIDs[chan] && srcRoom !== Chat.info.channelIDs[chan]) {
+                            var srcLogin = Chat.info.roomNames[srcRoom];
+                            if (srcLogin && Chat.info.channels.indexOf(srcLogin) > -1) return;
+                        }
+
+                        var nick = message.prefix.split('@')[0].split('!')[0];
+
+                        if (message.params[1].toLowerCase() === "!refreshoverlay" && typeof(message.tags.badges) === 'string') {
+                            var flag = false;
+                            message.tags.badges.split(',').forEach(badge => {
+                                badge = badge.split('/');
+                                if (badge[0] === "moderator" || badge[0] === "broadcaster") {
+                                    flag = true;
                                     return;
                                 }
+                            });
+                            // Only the primary channel's mods, max once a minute — in a
+                            // multi-channel dock a joined channel's mods shouldn't wipe
+                            // everyone's emote map (or hammer the APIs by spamming it)
+                            if (flag && chan === Chat.info.channel && (!Chat.lastEmoteRefresh || Date.now() - Chat.lastEmoteRefresh > 60000)) {
+                                Chat.lastEmoteRefresh = Date.now();
+                                Chat.refreshEmotes();
+                                console.log('kChat: Refreshing emotes...');
+                                return;
                             }
+                        }
 
-                            if (!Chat.passesFilters(nick, message.params[1])) return;
+                        if (!Chat.passesFilters(nick, message.params[1])) return;
 
-                            if (Chat.info.pronouns && !(nick in Chat.info.userPronouns)) {
-                                Chat.loadUserPronouns(nick);
-                            }
+                        if (Chat.info.pronouns && !(nick in Chat.info.userPronouns)) {
+                            Chat.loadUserPronouns(nick);
+                        }
+                        if (Chat.info.avatars && !(nick in Chat.info.userAvatars)) {
+                            Chat.loadUserAvatar(nick);
+                        }
 
-                            if (!Chat.info.hideBadges) {
-                                if (Chat.info.bttvBadges && Chat.info.seventvBadges && Chat.info.chatterinoBadges && Chat.info.ffzapBadges && !Chat.info.userBadges[nick]) Chat.loadUserBadges(nick, message.tags['user-id']);
-                            }
+                        if (!Chat.info.hideBadges) {
+                            if (Chat.info.bttvBadges && Chat.info.seventvBadges && Chat.info.chatterinoBadges && Chat.info.ffzapBadges && !Chat.info.userBadges[nick]) Chat.loadUserBadges(nick, message.tags['user-id']);
+                        }
 
-                            Chat.write(nick, message.tags, message.params[1]);
-                            return;
-                    }
-                });
+                        Chat.write(nick, message.tags, message.params[1], { platform: 'twitch', channel: chan });
+                        return;
+                }
+            });
+        };
+    },
+
+    // Kick chat rides a public Pusher websocket; one socket serves all Kick channels
+    connectKick: function() {
+        var slugToChatroom = {};
+        var chatroomToSlug = {};
+        var socket = null;
+        var pingTimer = null;
+
+        var subscribeAll = function() {
+            if (!socket || socket.readyState !== 1) return;
+            Object.entries(slugToChatroom).forEach(function(pair) {
+                socket.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel: 'chatrooms.' + pair[1] + '.v2' } }));
+            });
+        };
+
+        var connect = function() {
+            try { socket = new WebSocket('wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0&flash=false'); } catch (e) { return; }
+            socket.onmessage = function(e) {
+                var frame;
+                try { frame = JSON.parse(e.data); } catch (err) { return; }
+                if (frame.event === 'pusher:connection_established') {
+                    console.log('kChat: Kick connected');
+                    subscribeAll();
+                    return;
+                }
+                if (frame.event === 'pusher:ping') {
+                    socket.send(JSON.stringify({ event: 'pusher:pong', data: {} }));
+                    return;
+                }
+                var slug = null;
+                if (typeof frame.channel === 'string') {
+                    var m = frame.channel.match(/^chatrooms\.(\d+)\.v2$/);
+                    if (m) slug = chatroomToSlug[m[1]];
+                }
+                if (!slug) return;
+                var payload;
+                try { payload = JSON.parse(frame.data); } catch (err) { return; }
+                try {
+                    if (frame.event === 'App\\Events\\ChatMessageEvent') Chat.writeKick(payload, slug);
+                    else if (frame.event === 'App\\Events\\MessageDeletedEvent' && payload.message) Chat.clearMessage(payload.message.id);
+                    else if (frame.event === 'App\\Events\\UserBannedEvent' && payload.user && typeof payload.user.username === 'string') Chat.clearChat(payload.user.username.toLowerCase(), 'kick:' + slug);
+                } catch (err) { /* malformed Kick payloads must never kill the chat */ }
             };
+            socket.onclose = function() { setTimeout(connect, 5000); };
+            // Pusher expects activity; ping if the connection has been quiet.
+            // One timer for the lifetime of connectKick — reconnects must not stack them.
+            if (!pingTimer) {
+                pingTimer = setInterval(function() {
+                    if (socket && socket.readyState === 1) socket.send(JSON.stringify({ event: 'pusher:ping', data: {} }));
+                }, 60000);
+            }
+        };
+
+        // Transient failures (network not up yet at OBS launch, 5xx) retry with backoff;
+        // only a 404 means the channel genuinely doesn't exist
+        var resolveSlug = function(slug, attempt) {
+            $.getJSON('https://kick.com/api/v2/channels/' + encodeURIComponent(slug))
+                .done(function(res) {
+                    if (!res || !res.chatroom || !res.chatroom.id) {
+                        console.log('kChat: no chatroom found for Kick channel ' + slug);
+                        return;
+                    }
+                    slugToChatroom[slug] = res.chatroom.id;
+                    chatroomToSlug[res.chatroom.id] = slug;
+                    console.log('kChat: Kick chatroom for ' + slug + ' is ' + res.chatroom.id);
+                    if (!socket) connect();
+                    else subscribeAll();
+                })
+                .fail(function(xhr) {
+                    if (xhr && xhr.status === 404) {
+                        console.log('kChat: Kick channel ' + slug + ' does not exist');
+                        return;
+                    }
+                    if (attempt >= 6) {
+                        console.log('kChat: giving up resolving Kick channel ' + slug);
+                        return;
+                    }
+                    setTimeout(function() { resolveSlug(slug, attempt + 1); }, Math.min(5000 * Math.pow(2, attempt), 60000));
+                });
+        };
+        Chat.info.kickChannels.forEach(function(slug) { resolveSlug(slug, 0); });
+    },
+
+    writeKick: function(data, slug) {
+        if (!data || !data.sender || typeof data.content !== 'string') return;
+        var nick = String(data.sender.username || '').toLowerCase();
+        if (!nick || !Chat.passesFilters(nick, data.content)) return;
+        var identity = data.sender.identity || {};
+        Chat.write(nick, {
+            id: data.id,
+            color: typeof identity.color === 'string' ? identity.color : undefined,
+            'display-name': data.sender.username,
+            kickBadges: identity.badges
+        }, data.content, { platform: 'kick', channel: slug });
+    },
+
+    start: function(twitchChannels, kickChannels) {
+        Chat.info.channels = twitchChannels;
+        Chat.info.kickChannels = kickChannels;
+        Chat.info.channel = twitchChannels[0] || null;
+        Chat.info.mentionName = twitchChannels[0] || kickChannels[0] || null;
+        Chat.info.multiSource = (twitchChannels.length + kickChannels.length) > 1;
+        var title = $(document).prop('title');
+        $(document).prop('title', title + twitchChannels.concat(kickChannels).join(', '));
+
+        Chat.load(function() {
+            Chat.loadGlobalEmotes();
+            if (Chat.info.channels.length) Chat.connectIRC();
+            if (Chat.info.kickChannels.length) Chat.connectKick();
         });
     }
 };
@@ -873,9 +1157,14 @@ $(document).ready(function() {
         Chat.demo();
         return;
     }
-    if (!$.QueryString.channel) {
+    var splitList = function(v) {
+        return (v || '').toLowerCase().split(',').map(function(s) { return s.trim().replace(/^[@#]/, ''); }).filter(Boolean);
+    };
+    var twitchChannels = splitList($.QueryString.channel);
+    var kickChannels = splitList($.QueryString.kick);
+    if (!twitchChannels.length && !kickChannels.length) {
         window.location.replace('setup.html');
         return;
     }
-    Chat.connect($.QueryString.channel.toLowerCase());
+    Chat.start(twitchChannels, kickChannels);
 });

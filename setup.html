@@ -90,7 +90,10 @@
 
   <h2 class="gen-title">Build your chat URL</h2>
 
-  <div class="channel-row"><input type="text" id="channel" placeholder="Channel name" autocomplete="off"></div>
+  <div class="channel-row" style="gap:10px; flex-wrap:wrap;">
+    <input type="text" id="channel" placeholder="Twitch channel(s), comma separated" autocomplete="off">
+    <input type="text" id="kick" placeholder="Kick channel (optional)" autocomplete="off" style="font-size:20px;text-align:center;padding:10px 16px;width:250px;border-color:#53fc18;">
+  </div>
 
   <div class="section">
     <h2>Appearance</h2>
@@ -113,6 +116,10 @@
           <option value="0">Off</option><option value="1">Small</option><option value="2">Medium</option><option value="3">Large</option>
         </select></div></div>
         <div class="opt"><label>Emote scale</label><div class="ctl"><input type="number" id="emote_scale" placeholder="1" min="0.5" max="3" step="0.25"></div></div>
+        <div class="opt"><label>Theme</label><div class="ctl"><select id="theme">
+          <option value="">Default</option><option value="bubbles">Bubbles</option>
+          <option value="compact">Compact</option><option value="right">Right-aligned</option>
+        </select></div></div>
         <div class="opt"><label>Background</label><div class="ctl">
           <select id="bg">
             <option value="">Transparent (overlay)</option><option value="dark">Dark (OBS dock)</option>
@@ -138,6 +145,7 @@
         <div class="opt"><label>Highlight @mentions of you</label><input type="checkbox" id="mention" checked></div>
         <div class="opt"><label>7TV name paints &amp; badges</label><input type="checkbox" id="paints" checked></div>
         <div class="opt"><label>Pronouns <span style="color:var(--muted)">(pronouns.alejo.io)</span></label><input type="checkbox" id="pronouns"></div>
+        <div class="opt"><label>Avatars <span style="color:var(--muted)">(Twitch profile pics)</span></label><input type="checkbox" id="avatars"></div>
       </div>
     </div>
     <div class="blockrow" style="margin-top:10px">
@@ -179,19 +187,28 @@
 <script>
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var controls = ['channel','size','font','custom_font','stroke','shadow','emote_scale','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','paints','pronouns','block','filter'];
+  var controls = ['channel','kick','size','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','paints','pronouns','avatars','block','filter'];
   var previewTimer = null;
 
   function params(forPreview) {
     var p = new URLSearchParams();
-    if (forPreview) p.set('demo', 'true');
-    else if ($('channel').value.trim()) p.set('channel', $('channel').value.trim().toLowerCase().replace(/^[@#]/, ''));
+    var cleanList = function(v) { return v.trim().toLowerCase().split(',').map(function(s) { return s.trim().replace(/^[@#]/, ''); }).filter(Boolean).join(','); };
+    if (forPreview) {
+      p.set('demo', 'true');
+      // Let the preview know a multi-source setup is configured so it shows chips
+      if (cleanList($('kick').value)) p.set('kick', cleanList($('kick').value));
+      else if (cleanList($('channel').value).indexOf(',') > -1) p.set('channel', 'a,b');
+    } else {
+      if (cleanList($('channel').value)) p.set('channel', cleanList($('channel').value));
+      if (cleanList($('kick').value)) p.set('kick', cleanList($('kick').value));
+    }
     p.set('size', $('size').value);
     if ($('font').value !== '0') p.set('font', $('font').value);
     if ($('custom_font').value.trim()) p.set('custom_font', $('custom_font').value.trim());
     if ($('stroke').value !== '0') p.set('stroke', $('stroke').value);
     if ($('shadow').value !== '0') p.set('shadow', $('shadow').value);
     if ($('emote_scale').value && parseFloat($('emote_scale').value) !== 1) p.set('emote_scale', $('emote_scale').value);
+    if ($('theme').value) p.set('theme', $('theme').value);
     var bg = $('bg').value === 'custom' ? $('bg_hex').value.trim().replace(/^#/, '') : $('bg').value;
     if (bg) p.set('bg', bg);
     else if (forPreview) p.set('bg', '0e0e10'); // transparent renders black in the preview frame; show it on near-black
@@ -211,6 +228,7 @@
     if (!$('mention').checked) p.set('mention', 'false');
     if (!$('paints').checked) p.set('paints', 'false');
     if ($('pronouns').checked) p.set('pronouns', 'true');
+    if ($('avatars').checked) p.set('avatars', 'true');
     if ($('block').value.trim()) p.set('block', $('block').value.trim().toLowerCase().replace(/\s+/g, ','));
     if ($('filter').value.trim()) p.set('filter', $('filter').value.trim().toLowerCase());
     return p.toString();

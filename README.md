@@ -1,6 +1,6 @@
 # kChat
 
-A Twitch chat overlay **and** OBS chat dock with 7TV, BTTV, and FrankerFaceZ emote support. Fully static — no server, no API keys, no build step. Open `index.html` from disk or any static host and it just works.
+A Twitch **and Kick** chat overlay / OBS chat dock with 7TV, BTTV, and FrankerFaceZ emote support — including **merged multi-channel chat** (co-streams, simulcasts) in one view. Fully static — no server, no API keys, no build step. Open `index.html` from disk or any static host and it just works.
 
 kChat is a maintained fork of [jChat](https://github.com/giambaJ/jChat) by giambaJ (GPL-3.0), modernized after several Twitch/7TV API shutdowns broke the original, and inspired by [ChatIS](https://chatis.is2511.com/) by IS2511.
 
@@ -30,7 +30,10 @@ file:///C:/path/to/kchat/index.html?channel=yourtwitchname&bg=dark&size=2&font=1
 
 | Parameter | Values | Default | Notes |
 |---|---|---|---|
-| `channel` | Twitch login name | *(required)* | Whose chat to show |
+| `channel` | Twitch login name(s), comma separated | — | Whose chat to show; `a,b` merges channels with source chips |
+| `kick` | Kick channel name(s) | — | Kick chat, merged alongside Twitch (either param alone works too) |
+| `theme` | `bubbles`, `compact`, `right` | default | Message style preset |
+| `avatars` | `true`/`false` | `false` | Twitch profile pictures next to names |
 | `bg` | `dark`, `black`, `gray`, `light`, or hex like `18181b` | transparent | Solid background; use for OBS docks |
 | `size` | 1–3 | 3 | Text size (small/medium/large) |
 | `font` | 0–11 | 0 | 0 BalooTammudu, 1 SegoeUI, 2 Roboto, 3 Lato, 4 NotoSans, 5 SourceCodePro, 6 Impact, 7 Comfortaa, 8 DancingScript, 9 IndieFlower, 10 PressStart2P, 11 Wallpoet |
@@ -62,6 +65,11 @@ Moderators or the broadcaster can type `!refreshoverlay` in chat to reload emote
 | Feature | Status |
 |---|---|
 | 7TV / BTTV / FFZ emotes (global + channel), zero-width stacking | ✅ |
+| Kick chat (emotes, badges, deletions/bans) merged with Twitch | ✅ |
+| Multi-channel Twitch merge with per-message source chips | ✅ |
+| Twitch Shared Chat labeling (and de-duplication when both rooms are joined) | ✅ |
+| Chat-mode notices (slow / emote-only / sub-only / followers-only toggles) | ✅ |
+| Theme presets (bubbles, compact, right-aligned) | ✅ |
 | Live emote updates & 7TV name paints/badges (7TV EventAPI) | ✅ |
 | Twitch native emotes and badges (sub, mod, VIP, …) | ✅ (badges via IVR, degrade gracefully) |
 | FFZ custom mod/VIP badges, FFZ:AP / BTTV / Chatterino user badges | ✅ |
