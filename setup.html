@@ -3,16 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>kChat Setup</title>
+<meta name="description" content="kChat — free Twitch chat overlay & OBS chat dock with 7TV, BTTV and FrankerFaceZ emotes, name paints and live events. No accounts, no keys, fully static.">
+<title>kChat — Twitch chat overlay with 7TV emotes</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
 <style>
-  :root { --bg: #18181b; --panel: #1f1f23; --input: #26262c; --border: #3a3a3d; --text: #efeff1; --muted: #adadb8; --accent: #9147ff; }
+  :root { --bg: #0e0e10; --panel: #1a1a1e; --panel2: #1f1f23; --input: #26262c; --border: #35353b; --text: #efeff1; --muted: #adadb8; --accent: #9147ff; --accent2: #00c8af; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, sans-serif; }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
-  h1 { font-size: 28px; margin: 8px 0 4px; }
-  h1 small { color: var(--muted); font-size: 14px; font-weight: normal; margin-left: 8px; }
-  .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
-  .sub a { color: var(--accent); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px 64px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 56px 16px 36px; background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(145,71,255,.25), transparent); }
+  .hero h1 { font-size: 52px; margin: 0; letter-spacing: -1px;
+    background: linear-gradient(100deg, #9147ff 20%, #00c8af 80%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; display: inline-block; }
+  .hero .tag { font-size: 19px; color: var(--text); margin: 10px 0 6px; }
+  .hero .sub { color: var(--muted); font-size: 14px; }
+  .pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  .pill { background: var(--panel2); border: 1px solid var(--border); border-radius: 999px; padding: 5px 14px; font-size: 13px; color: var(--muted); }
+  .pill b { color: var(--text); font-weight: 600; }
+
+  /* Features */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 26px 0 34px; }
+  @media (max-width: 760px) { .features { grid-template-columns: 1fr; } }
+  .feature { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .feature .ico { font-size: 22px; }
+  .feature h3 { margin: 8px 0 4px; font-size: 15px; }
+  .feature p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+  /* Generator */
+  .gen-title { text-align: center; font-size: 22px; margin: 0 0 18px; }
   .channel-row { display: flex; justify-content: center; margin-bottom: 20px; }
   .channel-row input { font-size: 20px; text-align: center; padding: 10px 16px; width: 320px; }
   input, select { background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
@@ -25,7 +47,7 @@
   .opt select { min-width: 150px; }
   .opt input[type=text], .opt input[type=number] { width: 150px; }
   input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
-  .section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+  .section { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
   .section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 10px; }
   .blockrow { display: flex; align-items: center; gap: 12px; }
   .blockrow input { flex: 1; }
@@ -35,15 +57,38 @@
   .urlbar input { flex: 1; font-family: Consolas, monospace; font-size: 13px; color: #c9d1ff; }
   button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 18px; font-size: 15px; cursor: pointer; }
   button:hover { filter: brightness(1.1); }
-  button.ghost { background: var(--input); border: 1px solid var(--border); }
   .hint { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.5; }
   .hint code { background: var(--input); padding: 1px 6px; border-radius: 4px; }
+
+  /* Footer */
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 28px 16px 0; border-top: 1px solid var(--border); margin-top: 34px; line-height: 1.9; }
 </style>
 </head>
 <body>
+
+<div class="hero">
+  <h1>kChat</h1>
+  <p class="tag">Twitch chat for your stream — overlay <i>and</i> OBS dock, with all your emotes.</p>
+  <p class="sub">No accounts. No API keys. No server. Pick your options, copy one URL, done.</p>
+  <div class="pills">
+    <span class="pill"><b>7TV</b> · BTTV · FFZ</span>
+    <span class="pill"><b>Live</b> emote updates</span>
+    <span class="pill"><b>Free</b> &amp; open source</span>
+    <span class="pill">GPL-3.0</span>
+  </div>
+</div>
+
 <div class="wrap">
-  <h1>kChat <small>7TV · BTTV · FFZ chat overlay &amp; OBS dock</small></h1>
-  <p class="sub">No accounts, no keys — pick your options and copy the URL. A fork of <a href="https://github.com/giambaJ/jChat">jChat</a>, GPL-3.0.</p>
+  <div class="features">
+    <div class="feature"><div class="ico">😂</div><h3>Every emote, everywhere</h3><p>7TV, BetterTTV and FrankerFaceZ — global and channel sets, zero-width stacking, emoji, and Twitch's own emotes and badges.</p></div>
+    <div class="feature"><div class="ico">⚡</div><h3>Live via 7TV EventAPI</h3><p>Add an emote on 7tv.app and it shows up in chat instantly. Name paints and 7TV badges render in real time.</p></div>
+    <div class="feature"><div class="ico">🎉</div><h3>Events &amp; highlights</h3><p>Subs, gift bombs, raids and announcements as styled lines. First-time chatters, channel-point highlights and @mentions get tinted rows.</p></div>
+    <div class="feature"><div class="ico">🖥️</div><h3>Overlay or dock</h3><p>Transparent for on-stream browser sources — or pick a dark background and use it as an OBS custom chat dock that doesn't blind you.</p></div>
+    <div class="feature"><div class="ico">🛡️</div><h3>Mod-friendly</h3><p>Word filters, user block list, bot hiding, timestamps, clickable links and pronouns. Deleted messages and bans reflect live.</p></div>
+    <div class="feature"><div class="ico">📦</div><h3>Nothing to install</h3><p>A static page you can use right here, self-host, or run from a folder. No login, no tokens, no tracking, no server to die.</p></div>
+  </div>
+
+  <h2 class="gen-title">Build your chat URL</h2>
 
   <div class="channel-row"><input type="text" id="channel" placeholder="Channel name" autocomplete="off"></div>
 
@@ -119,9 +164,16 @@
     <p class="hint">
       <b>OBS overlay:</b> add a Browser source with this URL (keep Background = Transparent).<br>
       <b>OBS chat dock:</b> Docks → Custom Browser Docks, paste the URL (pick Background = Dark).<br>
-      Running from a downloaded folder? The URL starts with <code>file:///</code> — that works in OBS too.
+      Mods can type <code>!refreshoverlay</code> in chat to reload emotes on demand.
     </p>
   </div>
+
+  <footer>
+    <a href="https://github.com/IXenthI/kchat">GitHub</a> · <a href="https://github.com/IXenthI/kchat/issues">Report a bug</a> · <a href="https://github.com/IXenthI/kchat/blob/master/LICENSE">GPL-3.0</a><br>
+    kChat by <a href="https://www.twitch.tv/keyboardconqueror">KeyBoardConqueror</a> — a modernized fork of
+    <a href="https://github.com/giambaJ/jChat">jChat</a> by giambaJ, inspired by <a href="https://chatis.is2511.com/">ChatIS</a> by IS2511.<br>
+    Not affiliated with Twitch, 7TV, BetterTTV or FrankerFaceZ.
+  </footer>
 </div>
 
 <script>
