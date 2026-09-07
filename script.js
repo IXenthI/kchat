@@ -29,6 +29,8 @@ Chat = {
         channelID: null,        // primary channel's id (kept for back-compat)
         theme: ('theme' in $.QueryString ? $.QueryString.theme.toLowerCase() : false),
         avatars: ('avatars' in $.QueryString ? ($.QueryString.avatars.toLowerCase() === 'true') : false),
+        alternate: ('alternate' in $.QueryString ? ($.QueryString.alternate.toLowerCase() === 'true') : false),
+        alarms: ('alarms' in $.QueryString ? ($.QueryString.alarms.toLowerCase() === 'true') : false),
         userAvatars: {},
         animate: ('animate' in $.QueryString ? ($.QueryString.animate.toLowerCase() === 'true') : false),
         showBots: ('bots' in $.QueryString ? ($.QueryString.bots.toLowerCase() === 'true') : false),
@@ -296,7 +298,17 @@ Chat = {
         $.getJSON('https://api.pronouns.alejo.io/v1/users/' + encodeURIComponent(nick))
             .done(function(res) {
                 var p = res && Chat.info.pronounsMap && Chat.info.pronounsMap[res.pronoun_id];
-                Chat.info.userPronouns[nick] = p ? (p.singular ? p.subject : p.subject + '/' + p.object) : false;
+                var display = p ? (p.singular ? p.subject : p.subject + '/' + p.object) : false;
+                Chat.info.userPronouns[nick] = display;
+                // The fetch races the user's first message — patch already-rendered lines
+                if (typeof display === 'string') {
+                    $('.chat_line[data-nick="' + String(nick).replace(/["\\]/g, '') + '"] .user_info').each(function() {
+                        if ($(this).find('.pronoun').length) return;
+                        var $anchor = $(this).children('.badge').first();
+                        if (!$anchor.length) $anchor = $(this).find('.nick');
+                        $anchor.before($('<span></span>').addClass('pronoun').text(display));
+                    });
+                }
             })
             .fail(function() { Chat.info.userPronouns[nick] = false; });
     },
@@ -339,11 +351,27 @@ Chat = {
             else if (hex.length === 3 || hex.length === 6) document.body.style.background = '#' + hex;
         }
 
-        // Load CSS
-        let size = sizes[Chat.info.size - 1];
+        // Load CSS. Sizes 1-3 are the classic presets; 4+ is a custom pixel size,
+        // scaled with the same ratios the presets use (line 1.55x, emotes 1.25x, badges 0.82x)
+        var customSizeCSS = '';
+        if (Chat.info.size >= 4) {
+            var px = Math.min(Math.max(Math.round(Chat.info.size), 8), 72);
+            var r = function(f) { return Math.round(px * f); };
+            customSizeCSS =
+                '#chat_container { font-size: ' + px + 'px; }\n' +
+                '.chat_line { line-height: ' + r(1.55) + 'px; }\n' +
+                '.badge { width: ' + r(0.82) + 'px; height: ' + r(0.82) + 'px; margin-right: 2px; margin-bottom: 3px; }\n' +
+                '.badge:last-of-type { margin-right: ' + Math.max(r(0.15), 3) + 'px; }\n' +
+                '.colon { margin-right: ' + r(0.4) + 'px; }\n' +
+                '.cheer_bits { font-weight: 600; margin-left: 2px; margin-right: 4px; }\n' +
+                '.cheer_emote { max-height: ' + r(1.25) + 'px; margin-bottom: -' + r(0.3) + 'px; }\n' +
+                '.emote { max-width: ' + r(3.75) + 'px; max-height: ' + r(1.25) + 'px; margin-right: -2px; }\n' +
+                '.upscale { height: ' + r(1.25) + 'px; }\n' +
+                '.emoji { height: ' + r(1.1) + 'px; }\n';
+        } else {
+            appendCSS('size', sizes[Chat.info.size - 1] || 'large');
+        }
         let font = fonts[Chat.info.font];
-
-        appendCSS('size', size);
         appendCSS('font', font);
 
         if (Chat.info.stroke && Chat.info.stroke > 0) {
@@ -358,7 +386,7 @@ Chat = {
             appendCSS('variant', 'SmallCaps');
         }
 
-        var extraCSS = '';
+        var extraCSS = customSizeCSS;
         if (Chat.info.customFont) {
             extraCSS += '.chat_line { font-family: "' + Chat.info.customFont.replace(/["<>]/g, '') + '", sans-serif !important; }\n';
         }
@@ -376,12 +404,22 @@ Chat = {
         }
         var themes = {
             bubbles: '.chat_line { background: rgba(255,255,255,.08); border-radius: 14px; padding: 5px 12px; margin: 4px 0; width: fit-content; max-width: 95%; }\n',
-            compact: '#chat_container { padding: 4px; } .chat_line { margin: 0; line-height: 1.25; font-size: 0.9em; } img.emote, img.emoji { zoom: 0.85; }\n',
+            compact: '#chat_container { padding: 3px; }\n' +
+                '.chat_line { margin: 0 !important; line-height: 1.15 !important; font-size: 0.72em; }\n' +
+                'img.emote, img.emoji, img.cheer_emote { zoom: 0.6; }\n' +
+                '.badge { width: 0.7em !important; height: 0.7em !important; margin-bottom: 1px !important; }\n' +
+                '.avatar { height: 0.9em; width: 0.9em; }\n' +
+                '.colon { margin-right: 0.3em !important; }\n' +
+                '.chat_line.first_msg, .chat_line.highlighted, .chat_line.mentioned, .chat_line.event_line { padding: 0 4px; margin: 1px 0 !important; }\n',
             right: '.chat_line { text-align: right; } .chat_line.event_line { box-shadow: inset -3px 0 0 #b8b8be; }\n'
         };
         if (Chat.info.theme && themes[Chat.info.theme]) {
             extraCSS += themes[Chat.info.theme];
             if (Chat.info.theme === 'right') extraCSS += '.chat_line { margin-left: auto; }\n';
+        }
+        if (Chat.info.alternate) {
+            var stripe = Chat.info.background === 'light' ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.06)';
+            extraCSS += '.chat_line:nth-child(even):not(.first_msg):not(.highlighted):not(.mentioned):not(.event_line) { background: ' + stripe + '; border-radius: 4px; }\n';
         }
         if (extraCSS) {
             $('<style></style>').text(extraCSS).appendTo('head');
@@ -566,6 +604,10 @@ Chat = {
             if (Chat.info.mention && Chat.info.mentionName && message.toLowerCase().indexOf('@' + Chat.info.mentionName) > -1) {
                 $chatLine.addClass('mentioned');
             }
+            if (Chat.info.alarms) {
+                var alarmIcon = $chatLine.hasClass('mentioned') ? '🚨' : ($chatLine.hasClass('first_msg') ? '🆕' : ($chatLine.hasClass('highlighted') ? '💜' : null));
+                if (alarmIcon) $chatLine.append($('<span></span>').addClass('alarm').text(alarmIcon));
+            }
             var $userInfo = $('<span></span>');
             $userInfo.addClass('user_info');
             if (Chat.info.timestamps) {
@@ -585,7 +627,7 @@ Chat = {
                 $userInfo.append($('<span></span>').addClass('source_tag source_shared').text(srcName || 'shared'));
                 if (srcName === undefined) Chat.resolveRoomName(info['source-room-id']);
             }
-            if (Chat.info.avatars && !isKick) {
+            if (Chat.info.avatars && (!isKick || Chat.info.demo)) {
                 var avatar = Chat.info.userAvatars[nick];
                 if (typeof avatar === 'string') $userInfo.append($('<img/>').addClass('avatar').attr('src', avatar));
             }
@@ -860,6 +902,16 @@ Chat = {
                 ['EmoteEnjoyer', '#DAA520'],
                 ['LurkerLarry', '#8A2BE2']
             ];
+            // Fake pronouns/avatars so the preview demonstrates those options
+            var demoPronouns = { pixelpal: 'She/Her', streamfan42: 'He/Him', modestmod: 'They/Them', emoteenjoyer: 'It/Its', lurkerlarry: 'Any' };
+            var makeAvatar = function(letter, color) {
+                return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="' + color + '"/><text x="16" y="22" font-size="17" font-family="sans-serif" font-weight="bold" fill="#fff" text-anchor="middle">' + letter + '</text></svg>');
+            };
+            users.forEach(function(u) {
+                var key = u[0].toLowerCase();
+                Chat.info.userPronouns[key] = demoPronouns[key] || false;
+                Chat.info.userAvatars[key] = makeAvatar(u[0].charAt(0), u[1]);
+            });
             var lines = [
                 'welcome to the kChat preview {e}',
                 'this is what your chat will look like {e} {e}',
@@ -880,6 +932,7 @@ Chat = {
                 Chat.write(u[0].toLowerCase(), tags, msg);
                 if (i === 2) Chat.writeEvent('⭐', 'StreamFan42 subscribed at Tier 1. They\'ve subscribed for 3 months!', 'resub');
                 if (i === 4) Chat.writeEvent('🎉', '12 raiders from PixelPal have joined!', 'raid');
+                if (i === 6) Chat.writeEvent('🐌', 'Slow mode: 10s', 'mode');
                 if (i === 3 && Chat.info.multiSource) {
                     Chat.write('kicker', { id: 'demo-k' + i, color: '#53fc18', 'display-name': 'KickChatter', kickBadges: [{ type: 'og', text: 'OG' }] }, 'hi from the green side', { platform: 'kick', channel: 'demo' });
                 }

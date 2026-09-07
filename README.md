@@ -35,7 +35,9 @@ file:///C:/path/to/kchat/index.html?channel=yourtwitchname&bg=dark&size=2&font=1
 | `theme` | `bubbles`, `compact`, `right` | default | Message style preset |
 | `avatars` | `true`/`false` | `false` | Twitch profile pictures next to names |
 | `bg` | `dark`, `black`, `gray`, `light`, or hex like `18181b` | transparent | Solid background; use for OBS docks |
-| `size` | 1–3 | 3 | Text size (small/medium/large) |
+| `size` | 1–3 or 8–72 | 3 | 1/2/3 = small/medium/large presets; larger numbers = exact font size in px (emotes/badges scale along) |
+| `alarms` | `true`/`false` | `false` | Animated alarm icons on highlighted rows (🚨 mention, 🆕 first-timer, 💜 channel points) |
+| `alternate` | `true`/`false` | `false` | Alternating row shading |
 | `font` | 0–11 | 0 | 0 BalooTammudu, 1 SegoeUI, 2 Roboto, 3 Lato, 4 NotoSans, 5 SourceCodePro, 6 Impact, 7 Comfortaa, 8 DancingScript, 9 IndieFlower, 10 PressStart2P, 11 Wallpoet |
 | `custom_font` | any installed font name | — | Overrides `font` with a font from the viewer's PC |
 | `emote_scale` | 0.5–3 | 1 | Multiplies emote size |

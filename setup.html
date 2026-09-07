@@ -99,9 +99,12 @@
     <h2>Appearance</h2>
     <div class="grid">
       <div>
-        <div class="opt"><label>Size</label><div class="ctl"><select id="size">
-          <option value="1">Small</option><option value="2" selected>Medium</option><option value="3">Large</option>
-        </select></div></div>
+        <div class="opt"><label>Size</label><div class="ctl">
+          <select id="size">
+            <option value="1">Small</option><option value="2" selected>Medium</option><option value="3">Large</option><option value="custom">Custom (px)…</option>
+          </select>
+          <input type="number" id="size_px" value="24" min="8" max="72" style="width:70px;display:none">
+        </div></div>
         <div class="opt"><label>Font</label><div class="ctl"><select id="font">
           <option value="0">Baloo Tammudu</option><option value="1">Segoe UI</option><option value="2">Roboto</option>
           <option value="3">Lato</option><option value="4">Noto Sans</option><option value="5">Source Code Pro</option>
@@ -143,6 +146,8 @@
         <div class="opt"><label>Sub / raid / announce events</label><input type="checkbox" id="events" checked></div>
         <div class="opt"><label>Highlight first-timers &amp; channel points</label><input type="checkbox" id="highlights" checked></div>
         <div class="opt"><label>Highlight @mentions of you</label><input type="checkbox" id="mention" checked></div>
+        <div class="opt"><label>Alarm icons on highlights <span style="color:var(--muted)">🚨 animated</span></label><input type="checkbox" id="alarms"></div>
+        <div class="opt"><label>Alternating row shading</label><input type="checkbox" id="alternate"></div>
         <div class="opt"><label>7TV name paints &amp; badges</label><input type="checkbox" id="paints" checked></div>
         <div class="opt"><label>Pronouns <span style="color:var(--muted)">(pronouns.alejo.io)</span></label><input type="checkbox" id="pronouns"></div>
         <div class="opt"><label>Avatars <span style="color:var(--muted)">(Twitch profile pics)</span></label><input type="checkbox" id="avatars"></div>
@@ -187,7 +192,7 @@
 <script>
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var controls = ['channel','kick','size','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','paints','pronouns','avatars','block','filter'];
+  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','block','filter'];
   var previewTimer = null;
 
   function params(forPreview) {
@@ -202,7 +207,7 @@
       if (cleanList($('channel').value)) p.set('channel', cleanList($('channel').value));
       if (cleanList($('kick').value)) p.set('kick', cleanList($('kick').value));
     }
-    p.set('size', $('size').value);
+    p.set('size', $('size').value === 'custom' ? ($('size_px').value || '24') : $('size').value);
     if ($('font').value !== '0') p.set('font', $('font').value);
     if ($('custom_font').value.trim()) p.set('custom_font', $('custom_font').value.trim());
     if ($('stroke').value !== '0') p.set('stroke', $('stroke').value);
@@ -226,6 +231,8 @@
     if (!$('events').checked) p.set('events', 'false');
     if (!$('highlights').checked) p.set('highlights', 'false');
     if (!$('mention').checked) p.set('mention', 'false');
+    if ($('alarms').checked) p.set('alarms', 'true');
+    if ($('alternate').checked) p.set('alternate', 'true');
     if (!$('paints').checked) p.set('paints', 'false');
     if ($('pronouns').checked) p.set('pronouns', 'true');
     if ($('avatars').checked) p.set('avatars', 'true');
@@ -242,6 +249,7 @@
     $('url').value = chatBase() + '?' + params(false);
     $('fade').style.display = $('fade_on').checked ? '' : 'none';
     $('bg_hex').style.display = $('bg').value === 'custom' ? '' : 'none';
+    $('size_px').style.display = $('size').value === 'custom' ? '' : 'none';
     clearTimeout(previewTimer);
     previewTimer = setTimeout(function() {
       $('preview').src = chatBase() + '?' + params(true);
