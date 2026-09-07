@@ -101,7 +101,7 @@
       <div>
         <div class="opt"><label>Size</label><div class="ctl">
           <select id="size">
-            <option value="1">Small</option><option value="2" selected>Medium</option><option value="3">Large</option><option value="custom">Custom (px)…</option>
+            <option value="16">X-Small</option><option value="1">Small</option><option value="2" selected>Medium</option><option value="3">Large</option><option value="64">X-Large</option><option value="custom">Custom (px)…</option>
           </select>
           <input type="number" id="size_px" value="24" min="8" max="72" style="width:70px;display:none">
         </div></div>
@@ -137,6 +137,7 @@
           </select>
           <input type="text" id="text_hex" placeholder="efeff1" style="width:80px;display:none">
         </div></div>
+        <div class="opt"><label>Mod tools + chat box <span style="color:var(--muted)">(Twitch login, implies dock)</span></label><input type="checkbox" id="mod"></div>
       </div>
       <div>
         <div class="opt"><label>Animate new messages</label><input type="checkbox" id="animate" checked></div>
@@ -159,7 +160,6 @@
         <div class="opt"><label>Pronouns <span style="color:var(--muted)">(pronouns.alejo.io)</span></label><input type="checkbox" id="pronouns"></div>
         <div class="opt"><label>Avatars <span style="color:var(--muted)">(Twitch profile pics)</span></label><input type="checkbox" id="avatars"></div>
         <div class="opt"><label>Dock mode <span style="color:var(--muted)">(scrollable, top-down like Twitch)</span></label><input type="checkbox" id="dock"></div>
-        <div class="opt"><label>Mod tools + chat box <span style="color:var(--muted)">(Twitch login, implies dock)</span></label><input type="checkbox" id="mod"></div>
       </div>
     </div>
     <div class="blockrow" style="margin-top:10px">
