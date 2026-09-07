@@ -696,13 +696,23 @@ Chat = {
             }
             // Mod action icons go right after the timestamp, always visible, like Twitch's
             // mod view. Ban / Timeout / Delete order. Only for logged-in mods on Twitch lines.
+            // Twitch forbids moderating the broadcaster or a fellow mod (only the broadcaster
+            // can action their own mods) — so don't offer buttons that can only 404/400.
             if (Chat.info.modMode && Chat.auth && !isKick) {
-                $chatLine.attr('data-userid', info['user-id'] || '');
-                var $tools = $('<span></span>').addClass('mod_tools');
-                [['ban', '🔨', 'Ban (click twice)'], ['timeout', '⏱', 'Timeout 10m (click twice)'], ['delete', '🗑', 'Delete message']].forEach(function(b) {
-                    $tools.append($('<button></button>').attr('data-act', b[0]).attr('title', b[2]).text(b[1]));
-                });
-                $userInfo.append($tools);
+                var tBadges = typeof info.badges === 'string' ? info.badges : '';
+                var targetIsBroadcaster = /(^|,)broadcaster\//.test(tBadges) || nick === source.channel;
+                var targetIsMod = /(^|,)moderator\//.test(tBadges);
+                var iAmBroadcaster = Chat.info.channelIDs[source.channel] === Chat.auth.userId;
+                var iAmThem = info['user-id'] === Chat.auth.userId;
+                var canModerate = !iAmThem && !targetIsBroadcaster && (!targetIsMod || iAmBroadcaster);
+                if (canModerate) {
+                    $chatLine.attr('data-userid', info['user-id'] || '');
+                    var $tools = $('<span></span>').addClass('mod_tools');
+                    [['ban', '🔨', 'Ban (click twice)'], ['timeout', '⏱', 'Timeout 10m (click twice)'], ['delete', '🗑', 'Delete message']].forEach(function(b) {
+                        $tools.append($('<button></button>').attr('data-act', b[0]).attr('title', b[2]).text(b[1]));
+                    });
+                    $userInfo.append($tools);
+                }
             }
             if (Chat.info.multiSource) {
                 $userInfo.append($('<span></span>')
@@ -1123,7 +1133,18 @@ Chat = {
             call.done(function() {
                 $line.css('opacity', '0.35');
             }).fail(function(xhr) {
-                var why = (xhr.responseJSON && xhr.responseJSON.message) || ('HTTP ' + xhr.status);
+                // Surface Twitch's actual error message, not just the status code
+                var why = '';
+                if (xhr.responseJSON && xhr.responseJSON.message) why = xhr.responseJSON.message;
+                else if (xhr.responseText) {
+                    try { why = JSON.parse(xhr.responseText).message || xhr.responseText; }
+                    catch (e) { why = xhr.responseText; }
+                }
+                if (!why) {
+                    if (xhr.status === 401) why = 'not authorized — you may not be a mod in this channel, or your login expired';
+                    else if (xhr.status === 400) why = "can't perform this action on this user (broadcaster/mod, or already banned)";
+                    else why = 'HTTP ' + xhr.status;
+                }
                 Chat.writeEvent('⚠️', 'Mod action failed: ' + why, 'mode');
             });
         });
