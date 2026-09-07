@@ -657,6 +657,36 @@ Chat = {
                 var alarmIcon = $chatLine.hasClass('mentioned') ? '🚨' : ($chatLine.hasClass('first_msg') ? '🆕' : ($chatLine.hasClass('highlighted') ? '💜' : null));
                 if (alarmIcon) $chatLine.append($('<span></span>').addClass('alarm').text(alarmIcon));
             }
+            // Channel-points redemptions that carry a message arrive via IRC with a
+            // custom-reward-id tag (or msg-id=highlighted-message for "Highlight My Message").
+            // The reward name/cost need the broadcaster's own token, so we show a generic tag.
+            if (!isKick) {
+                if (typeof info['custom-reward-id'] === 'string' && info['custom-reward-id']) {
+                    $chatLine.addClass('redeemed');
+                    Chat.info.lines.push($('<div></div>').addClass('chat_line redeem_line')
+                        .attr('data-time', Date.now())
+                        .append($('<span></span>').addClass('redeem_icon').text('🎁'))
+                        .append($('<span></span>').addClass('redeem_text').text(' Redeemed a channel-points reward'))
+                        .wrap('<div>').parent().html());
+                } else if (info['msg-id'] === 'highlighted-message') {
+                    Chat.info.lines.push($('<div></div>').addClass('chat_line redeem_line')
+                        .attr('data-time', Date.now())
+                        .append($('<span></span>').addClass('redeem_icon').text('✨'))
+                        .append($('<span></span>').addClass('redeem_text').text(' Redeemed Highlight My Message'))
+                        .wrap('<div>').parent().html());
+                }
+            }
+            // Reply threads: Twitch delivers the parent message in IRC tags. Show a
+            // greyed "Replying to @user: preview" line above, like the Twitch client.
+            if (!isKick && typeof info['reply-parent-user-login'] === 'string' && info['reply-parent-user-login']) {
+                var parentName = (typeof info['reply-parent-display-name'] === 'string' && info['reply-parent-display-name']) || info['reply-parent-user-login'];
+                var parentBody = typeof info['reply-parent-msg-body'] === 'string' ? info['reply-parent-msg-body'] : '';
+                if (parentBody.length > 60) parentBody = parentBody.slice(0, 60) + '…';
+                $chatLine.append($('<div></div>').addClass('reply_context')
+                    .append($('<span></span>').addClass('reply_icon').text('💬 '))
+                    .append($('<span></span>').addClass('reply_to').text('Replying to @' + parentName + ': '))
+                    .append($('<span></span>').addClass('reply_body').text(parentBody)));
+            }
             var $userInfo = $('<span></span>');
             $userInfo.addClass('user_info');
             if (Chat.info.timestamps) {
@@ -998,8 +1028,10 @@ Chat = {
                 if (i === 2) Chat.writeEvent('⭐', 'StreamFan42 subscribed at Tier 1. They\'ve subscribed for 3 months!', 'resub');
                 if (i === 4) Chat.writeEvent('🎉', '12 raiders from PixelPal have joined!', 'raid');
                 if (i === 6) Chat.writeEvent('🐌', 'Slow mode: 10s', 'mode');
+                if (i === 5) Chat.write('replyfan', { id: 'demo-r' + i, color: '#FF4500', 'display-name': 'ReplyFan', 'reply-parent-display-name': 'PixelPal', 'reply-parent-user-login': 'pixelpal', 'reply-parent-msg-body': 'welcome to the keychat preview' }, '@PixelPal thanks!');
+                if (i === 7) Chat.write('vipviewer', { id: 'demo-rd' + i, color: '#1E90FF', 'display-name': 'VIPViewer', 'custom-reward-id': 'demo' }, 'redeemed a reward to say this');
                 if (i === 3 && Chat.info.multiSource) {
-                    Chat.write('kicker', { id: 'demo-k' + i, color: '#53fc18', 'display-name': 'KicKeyChatter', kickBadges: [{ type: 'og', text: 'OG' }] }, 'hi from the green side', { platform: 'kick', channel: 'demo' });
+                    Chat.write('kicker', { id: 'demo-k' + i, color: '#53fc18', 'display-name': 'KickChatter', kickBadges: [{ type: 'og', text: 'OG' }] }, 'hi from the green side', { platform: 'kick', channel: 'demo' });
                 }
                 i++;
                 setTimeout(tick, i < 5 ? 600 : 2500);

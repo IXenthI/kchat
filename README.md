@@ -82,7 +82,10 @@ Moderators or the broadcaster can type `!refreshoverlay` in chat to reload emote
 | Timestamps, clickable links, word filter, pronouns | ✅ (opt-in) |
 | Emoji (Twemoji) | ✅ |
 | Message deletion / bans reflected live | ✅ |
+| Reply threads ("Replying to @user: …") | ✅ |
+| Channel-points redeemed-message notice | ✅ (generic — reward name/cost need the broadcaster's token) |
 | Cheermote images | ❌ shows as text (needed retired Kraken API) |
+| Message-less channel-point redemptions ("X redeemed Y") | ❌ not in IRC (needs broadcaster EventSub) |
 
 ## Mod tools & chat box (optional)
 
