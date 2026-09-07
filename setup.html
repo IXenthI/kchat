@@ -149,8 +149,9 @@
         <div class="opt"><label>Show bots &amp; commands</label><input type="checkbox" id="bots" checked></div>
         <div class="opt"><label>Hide !commands</label><input type="checkbox" id="hide_commands"></div>
         <div class="opt"><label>Fade old messages <span style="color:var(--muted)">(seconds)</span></label><div class="ctl"><input type="checkbox" id="fade_on"><input type="number" id="fade" value="30" min="1" style="width:70px;display:none"></div></div>
-        <div class="opt"><label>CAPS</label><input type="checkbox" id="caps"></div>
-        <div class="opt"><label>Small caps</label><input type="checkbox" id="small_caps"></div>
+        <div class="opt"><label>Text case</label><div class="ctl"><select id="textcase">
+          <option value="">Normal</option><option value="caps">UPPERCASE</option><option value="small_caps">Small caps</option>
+        </select></div></div>
         <div class="opt"><label>New line after name</label><input type="checkbox" id="nl"></div>
         <div class="opt"><label>Hide usernames</label><input type="checkbox" id="hide_usernames"></div>
         <div class="opt"><label>Hide badges</label><input type="checkbox" id="hide_badges"></div>
@@ -203,7 +204,7 @@
 <script>
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','text','text_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','dock','mod','block','filter'];
+  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','text','text_hex','animate','bots','hide_commands','fade_on','fade','textcase','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','dock','mod','block','filter'];
   var previewTimer = null;
 
   function params(forPreview) {
@@ -234,8 +235,8 @@
     if ($('bots').checked) p.set('bots', 'true');
     if ($('hide_commands').checked) p.set('hide_commands', 'true');
     if ($('fade_on').checked && $('fade').value) p.set('fade', $('fade').value);
-    if ($('caps').checked) p.set('caps', 'true');
-    if ($('small_caps').checked) p.set('small_caps', 'true');
+    if ($('textcase').value === 'caps') p.set('caps', 'true');
+    else if ($('textcase').value === 'small_caps') p.set('small_caps', 'true');
     if ($('nl').checked) p.set('nl', 'true');
     if ($('hide_usernames').checked) p.set('hide_usernames', 'true');
     if ($('hide_badges').checked) p.set('hide_badges', 'true');
