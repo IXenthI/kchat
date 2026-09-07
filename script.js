@@ -1024,16 +1024,38 @@ Chat = {
                 ['EmoteEnjoyer', '#DAA520'],
                 ['LurkerLarry', '#8A2BE2']
             ];
-            // Fake pronouns/avatars so the preview demonstrates those options
+            // Demo accounts are fake, so real per-user data (pronouns, avatars, third-party
+            // badges, 7TV cosmetics) can't be fetched — fake it all so the preview actually
+            // demonstrates every toggle and responds to it.
             var demoPronouns = { pixelpal: 'She/Her', streamfan42: 'He/Him', modestmod: 'They/Them', emoteenjoyer: 'It/Its', lurkerlarry: 'Any' };
+            var svgAsset = function(inner, size) {
+                return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + ' ' + size + '">' + inner + '</svg>');
+            };
             var makeAvatar = function(letter, color) {
-                return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="' + color + '"/><text x="16" y="22" font-size="17" font-family="sans-serif" font-weight="bold" fill="#fff" text-anchor="middle">' + letter + '</text></svg>');
+                return svgAsset('<circle cx="16" cy="16" r="16" fill="' + color + '"/><text x="16" y="22" font-size="17" font-family="sans-serif" font-weight="bold" fill="#fff" text-anchor="middle">' + letter + '</text>', 32);
+            };
+            var makeBadge = function(letter, color) {
+                return svgAsset('<rect width="18" height="18" rx="4" fill="' + color + '"/><text x="9" y="13.5" font-size="11" font-family="sans-serif" font-weight="bold" fill="#fff" text-anchor="middle">' + letter + '</text>', 18);
+            };
+            // Provider brand colors: BTTV red, FFZ slate, Chatterino teal, 7TV neutral
+            var demoBadges = {
+                pixelpal: [{ description: 'BTTV Pro', url: makeBadge('B', '#d50014'), provider: 'BTTV' }],
+                streamfan42: [{ description: 'FFZ Supporter', url: makeBadge('F', '#5b6d7d'), provider: 'FFZ' }],
+                modestmod: [{ description: 'Chatterino', url: makeBadge('C', '#1db3ba'), provider: 'Chatterino' }],
+                emoteenjoyer: [{ description: 'BTTV', url: makeBadge('B', '#d50014'), provider: 'BTTV' }, { description: 'FFZ', url: makeBadge('F', '#5b6d7d'), provider: 'FFZ' }],
+                lurkerlarry: [{ description: 'Chatterino', url: makeBadge('C', '#1db3ba'), provider: 'Chatterino' }]
             };
             users.forEach(function(u) {
                 var key = u[0].toLowerCase();
                 Chat.info.userPronouns[key] = demoPronouns[key] || false;
                 Chat.info.userAvatars[key] = makeAvatar(u[0].charAt(0), u[1]);
+                Chat.info.userBadges[key] = demoBadges[key] || [];
             });
+            // A fake 7TV name paint and 7TV badge for the "7TV paints & badges" toggle
+            Chat.info.seventvUserCosmetics['pixelpal'] = { PAINT: 'demopaint' };
+            Chat.info.seventvPaints['demopaint'] = { image: 'linear-gradient(92deg, #ff6ac1 0%, #ffd86b 100%)' };
+            Chat.info.seventvUserCosmetics['streamfan42'] = { BADGE: 'demo7tv' };
+            Chat.info.seventvBadgeDefs['demo7tv'] = { tooltip: '7TV Subscriber', url: makeBadge('7', '#2c2c34') };
             var lines = [
                 'welcome to the KeyChat preview {e}',
                 'this is what your chat will look like {e} {e}',
