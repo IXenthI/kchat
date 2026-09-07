@@ -1,3 +1,8 @@
+// Twitch application Client ID (public by design) — powers optional mod tools/login.
+// Forks: register your own at dev.twitch.tv/console/apps (Public client type) and
+// add YOUR hosting URL as the OAuth redirect.
+const KCHAT_CLIENT_ID = '';
+
 const fonts = [
     'BalooTammudu',
     'SegoeUI',

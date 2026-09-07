@@ -83,6 +83,16 @@ Moderators or the broadcaster can type `!refreshoverlay` in chat to reload emote
 | Message deletion / bans reflected live | ✅ |
 | Cheermote images | ❌ shows as text (needed retired Kraken API) |
 
+## Mod tools & chat box (optional)
+
+Add `mod=true` to a **docked** kChat URL and a "Log in with Twitch" button appears. After logging in (OAuth happens entirely in your browser — no server, the token never leaves your machine):
+
+- Hover any Twitch message for 🗑 delete, ⏱ 10-minute timeout, 🔨 ban (timeout/ban need a second click within 3s to confirm)
+- A chat box appears at the bottom so you can talk in your primary channel from the dock
+- Actions work only in channels where your account actually has mod powers — Twitch enforces this server-side
+
+Requires the hosted (https) version — OAuth can't redirect to `file://` pages. Self-hosting a fork? Register your own free app at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) (Client Type: **Public**, redirect URL = your hosted `index.html`) and put its Client ID in `settings.js`.
+
 ## Hosting for friends
 
 It's a static folder — host it anywhere:

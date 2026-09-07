@@ -31,6 +31,7 @@ Chat = {
         avatars: ('avatars' in $.QueryString ? ($.QueryString.avatars.toLowerCase() === 'true') : false),
         alternate: ('alternate' in $.QueryString ? ($.QueryString.alternate.toLowerCase() === 'true') : false),
         alarms: ('alarms' in $.QueryString ? ($.QueryString.alarms.toLowerCase() === 'true') : false),
+        modMode: ('mod' in $.QueryString ? ($.QueryString.mod.toLowerCase() === 'true') : false),
         userAvatars: {},
         animate: ('animate' in $.QueryString ? ($.QueryString.animate.toLowerCase() === 'true') : false),
         showBots: ('bots' in $.QueryString ? ($.QueryString.bots.toLowerCase() === 'true') : false),
@@ -874,6 +875,16 @@ Chat = {
             });
             $message.html($message.html().trim());
             $chatLine.append($message);
+
+            if (Chat.info.modMode && Chat.auth && !isKick) {
+                $chatLine.attr('data-userid', info['user-id'] || '');
+                var $tools = $('<span></span>').addClass('mod_tools');
+                [['delete', '🗑', 'Delete message'], ['timeout', '⏱', 'Timeout 10m (click twice)'], ['ban', '🔨', 'Ban (click twice)']].forEach(function(b) {
+                    $tools.append($('<button></button>').attr('data-act', b[0]).attr('title', b[2]).text(b[1]));
+                });
+                $chatLine.append($tools);
+            }
+
             Chat.info.lines.push($chatLine.wrap('<div>').parent().html());
         }
     },
@@ -972,6 +983,127 @@ Chat = {
         });
     },
 
+    // ---- Twitch login (OAuth implicit flow — fully client-side, no server) ----
+    auth: null,
+
+    initAuth: function(callback) {
+        // Returning from Twitch: token arrives in the URL fragment, original query in state
+        if (window.location.hash.indexOf('access_token=') > -1) {
+            var frag = new URLSearchParams(window.location.hash.slice(1));
+            var token = frag.get('access_token');
+            if (token) {
+                try { localStorage.setItem('kchat_token', token); } catch (e) {}
+                var qs = '';
+                try { qs = atob(frag.get('state') || ''); } catch (e) {}
+                window.location.replace(window.location.pathname + (qs ? '?' + qs : ''));
+                return;
+            }
+        }
+        var stored = null;
+        try { stored = localStorage.getItem('kchat_token'); } catch (e) {}
+        if (!stored) { callback(); return; }
+        $.ajax({ url: 'https://id.twitch.tv/oauth2/validate', headers: { 'Authorization': 'OAuth ' + stored } })
+            .done(function(res) {
+                Chat.auth = { token: stored, login: res.login, userId: res.user_id, scopes: res.scopes || [] };
+                console.log('kChat: logged in as ' + res.login);
+            })
+            .fail(function() {
+                try { localStorage.removeItem('kchat_token'); } catch (e) {}
+            })
+            .always(function() { callback(); });
+    },
+
+    loginURL: function() {
+        var state = '';
+        try { state = btoa(window.location.search.slice(1)); } catch (e) {}
+        return 'https://id.twitch.tv/oauth2/authorize' +
+            '?client_id=' + encodeURIComponent(KCHAT_CLIENT_ID) +
+            '&redirect_uri=' + encodeURIComponent(window.location.origin + window.location.pathname) +
+            '&response_type=token' +
+            '&scope=' + encodeURIComponent('chat:read chat:edit moderator:manage:banned_users moderator:manage:chat_messages') +
+            '&state=' + encodeURIComponent(state);
+    },
+
+    helix: function(method, path, body) {
+        return $.ajax({
+            url: 'https://api.twitch.tv/helix/' + path,
+            method: method,
+            headers: { 'Authorization': 'Bearer ' + Chat.auth.token, 'Client-Id': KCHAT_CLIENT_ID },
+            contentType: 'application/json',
+            data: body ? JSON.stringify(body) : undefined
+        });
+    },
+
+    // Hover mod buttons: delete / 10m timeout / ban. Ban and timeout arm on first
+    // click (⚠) and fire on the second within 3s, so a stray click can't ban anyone.
+    setupModTools: function() {
+        $(document).on('click', '.mod_tools button', function() {
+            var $btn = $(this);
+            var $line = $btn.closest('.chat_line');
+            var sourceParts = String($line.attr('data-source') || '').split(':');
+            if (sourceParts[0] !== 'twitch') return;
+            var broadcasterId = Chat.info.channelIDs[sourceParts[1]];
+            var userId = $line.attr('data-userid');
+            var msgId = $line.attr('data-id');
+            if (!broadcasterId) return;
+
+            var action = $btn.attr('data-act');
+            if (action !== 'delete') {
+                if (!$btn.hasClass('armed')) {
+                    $btn.addClass('armed');
+                    setTimeout(function() { $btn.removeClass('armed'); }, 3000);
+                    return;
+                }
+                $btn.removeClass('armed');
+            }
+
+            var call;
+            var modQuery = 'broadcaster_id=' + encodeURIComponent(broadcasterId) + '&moderator_id=' + encodeURIComponent(Chat.auth.userId);
+            if (action === 'delete') call = Chat.helix('DELETE', 'moderation/chat?' + modQuery + '&message_id=' + encodeURIComponent(msgId));
+            else if (action === 'timeout') call = Chat.helix('POST', 'moderation/bans?' + modQuery, { data: { user_id: userId, duration: 600 } });
+            else if (action === 'ban') call = Chat.helix('POST', 'moderation/bans?' + modQuery, { data: { user_id: userId } });
+            else return;
+
+            call.done(function() {
+                $line.css('opacity', '0.35');
+            }).fail(function(xhr) {
+                var why = (xhr.responseJSON && xhr.responseJSON.message) || ('HTTP ' + xhr.status);
+                Chat.writeEvent('⚠️', 'Mod action failed: ' + why, 'mode');
+            });
+        });
+    },
+
+    // Bottom chat box: talk in the primary channel straight from the dock
+    setupChatBox: function() {
+        var $bar = $('<div id="chat_input_bar"></div>');
+        var $input = $('<input id="chat_input" maxlength="500" autocomplete="off">')
+            .attr('placeholder', 'Chat as ' + Chat.auth.login + ' in #' + Chat.info.channel);
+        var $send = $('<button id="chat_send">➤</button>');
+        $bar.append($input).append($send).appendTo('body');
+        $('<style></style>').text('#chat_container { bottom: 46px; }').appendTo('head');
+        var send = function() {
+            var text = $input.val().trim();
+            if (!text || !Chat.ircSocket || Chat.ircSocket.readyState !== 1) return;
+            Chat.ircSocket.send('PRIVMSG #' + Chat.info.channel + ' :' + text + '\r\n');
+            $input.val('');
+            // Twitch doesn't echo your own messages back on this connection
+            Chat.write(Chat.auth.login, { id: 'own-' + Date.now(), color: '#9147ff', 'display-name': Chat.auth.login }, text, { platform: 'twitch', channel: Chat.info.channel });
+        };
+        $send.on('click', send);
+        $input.on('keydown', function(e) { if (e.key === 'Enter') send(); });
+    },
+
+    setupLoginButton: function() {
+        var $btn = $('<button id="twitch_login">Log in with Twitch</button>').appendTo('body');
+        $btn.on('click', function() {
+            if (!KCHAT_CLIENT_ID) {
+                Chat.writeEvent('⚠️', 'No Twitch Client ID configured — see README (mod tools section)', 'mode');
+                return;
+            }
+            window.location.href = Chat.loginURL();
+        });
+    },
+
     // Shared Chat labels: resolve an unknown room id to its login via IVR
     resolveRoomName: function(roomId) {
         Chat.info.roomNames[roomId] = null; // pending
@@ -1009,11 +1141,17 @@ Chat = {
     connectIRC: function() {
         console.log('kChat: Connecting to IRC server...');
         var socket = new ReconnectingWebSocket('wss://irc-ws.chat.twitch.tv', 'irc', { reconnectInterval: 2000 });
+        Chat.ircSocket = socket;
 
         socket.onopen = function() {
             console.log('kChat: Connected');
-            socket.send('PASS blah\r\n');
-            socket.send('NICK justinfan' + Math.floor(Math.random() * 99999) + '\r\n');
+            if (Chat.auth && Chat.auth.scopes.indexOf('chat:read') > -1) {
+                socket.send('PASS oauth:' + Chat.auth.token + '\r\n');
+                socket.send('NICK ' + Chat.auth.login + '\r\n');
+            } else {
+                socket.send('PASS blah\r\n');
+                socket.send('NICK justinfan' + Math.floor(Math.random() * 99999) + '\r\n');
+            }
             socket.send('CAP REQ :twitch.tv/commands twitch.tv/tags\r\n');
             Chat.info.channels.forEach(function(c) { socket.send('JOIN #' + c + '\r\n'); });
         };
@@ -1231,6 +1369,14 @@ Chat = {
             Chat.loadGlobalEmotes();
             if (Chat.info.channels.length) Chat.connectIRC();
             if (Chat.info.kickChannels.length) Chat.connectKick();
+            if (Chat.info.modMode) {
+                if (Chat.auth) {
+                    Chat.setupModTools();
+                    if (Chat.info.channels.length) Chat.setupChatBox();
+                } else {
+                    Chat.setupLoginButton();
+                }
+            }
         });
     }
 };
@@ -1245,9 +1391,13 @@ $(document).ready(function() {
     };
     var twitchChannels = splitList($.QueryString.channel);
     var kickChannels = splitList($.QueryString.kick);
-    if (!twitchChannels.length && !kickChannels.length) {
+    if (!twitchChannels.length && !kickChannels.length && window.location.hash.indexOf('access_token=') === -1) {
         window.location.replace('setup.html');
         return;
     }
-    Chat.start(twitchChannels, kickChannels);
+    if (Chat.info.modMode || window.location.hash.indexOf('access_token=') > -1) {
+        Chat.initAuth(function() { Chat.start(twitchChannels, kickChannels); });
+    } else {
+        Chat.start(twitchChannels, kickChannels);
+    }
 });
