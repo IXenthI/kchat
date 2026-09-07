@@ -11,6 +11,14 @@ function escapeRegExp(string) { // Thanks to coolaj86 and Darren Cook (https://s
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function escapeAttr(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
 function escapeHtml(message) {
     return message
         .replace(/&/g, "&amp;")

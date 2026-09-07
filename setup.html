@@ -86,11 +86,22 @@
         <div class="opt"><label>New line after name</label><input type="checkbox" id="nl"></div>
         <div class="opt"><label>Hide usernames</label><input type="checkbox" id="hide_usernames"></div>
         <div class="opt"><label>Hide badges</label><input type="checkbox" id="hide_badges"></div>
+        <div class="opt"><label>Timestamps</label><input type="checkbox" id="timestamps"></div>
+        <div class="opt"><label>Clickable links <span style="color:var(--muted)">(docks)</span></label><input type="checkbox" id="links"></div>
+        <div class="opt"><label>Sub / raid / announce events</label><input type="checkbox" id="events" checked></div>
+        <div class="opt"><label>Highlight first-timers &amp; channel points</label><input type="checkbox" id="highlights" checked></div>
+        <div class="opt"><label>Highlight @mentions of you</label><input type="checkbox" id="mention" checked></div>
+        <div class="opt"><label>7TV name paints &amp; badges</label><input type="checkbox" id="paints" checked></div>
+        <div class="opt"><label>Pronouns <span style="color:var(--muted)">(pronouns.alejo.io)</span></label><input type="checkbox" id="pronouns"></div>
       </div>
     </div>
     <div class="blockrow" style="margin-top:10px">
       <label>Block list</label>
       <input type="text" id="block" placeholder="comma separated usernames to hide">
+    </div>
+    <div class="blockrow" style="margin-top:10px">
+      <label>Word filter</label>
+      <input type="text" id="filter" placeholder="comma separated words — hide messages containing them">
     </div>
   </div>
 
@@ -116,7 +127,7 @@
 <script>
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var controls = ['channel','size','font','custom_font','stroke','shadow','emote_scale','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','block'];
+  var controls = ['channel','size','font','custom_font','stroke','shadow','emote_scale','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','paints','pronouns','block','filter'];
   var previewTimer = null;
 
   function params(forPreview) {
@@ -141,7 +152,15 @@
     if ($('nl').checked) p.set('nl', 'true');
     if ($('hide_usernames').checked) p.set('hide_usernames', 'true');
     if ($('hide_badges').checked) p.set('hide_badges', 'true');
+    if ($('timestamps').checked) p.set('timestamps', 'true');
+    if ($('links').checked) p.set('links', 'true');
+    if (!$('events').checked) p.set('events', 'false');
+    if (!$('highlights').checked) p.set('highlights', 'false');
+    if (!$('mention').checked) p.set('mention', 'false');
+    if (!$('paints').checked) p.set('paints', 'false');
+    if ($('pronouns').checked) p.set('pronouns', 'true');
     if ($('block').value.trim()) p.set('block', $('block').value.trim().toLowerCase().replace(/\s+/g, ','));
+    if ($('filter').value.trim()) p.set('filter', $('filter').value.trim().toLowerCase());
     return p.toString();
   }
 

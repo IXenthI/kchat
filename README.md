@@ -62,13 +62,15 @@ Moderators or the broadcaster can type `!refreshoverlay` in chat to reload emote
 | Feature | Status |
 |---|---|
 | 7TV / BTTV / FFZ emotes (global + channel), zero-width stacking | ✅ |
+| Live emote updates & 7TV name paints/badges (7TV EventAPI) | ✅ |
 | Twitch native emotes and badges (sub, mod, VIP, …) | ✅ (badges via IVR, degrade gracefully) |
 | FFZ custom mod/VIP badges, FFZ:AP / BTTV / Chatterino user badges | ✅ |
+| Sub / resub / gift / raid / announcement event lines | ✅ |
+| First-time chatter, channel-point highlight & @mention row tinting | ✅ |
+| Timestamps, clickable links, word filter, pronouns | ✅ (opt-in) |
 | Emoji (Twemoji) | ✅ |
 | Message deletion / bans reflected live | ✅ |
 | Cheermote images | ❌ shows as text (needed retired Kraken API) |
-| 7TV animated badges & name paints | ❌ planned (needs 7TV EventAPI) |
-| Live emote auto-refresh | ❌ use `!refreshoverlay` (needs 7TV EventAPI) |
 
 ## Hosting for friends
 

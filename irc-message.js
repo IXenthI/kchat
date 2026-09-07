@@ -28,9 +28,21 @@ window.parseIRC = function(data) {
         for (var i = 0; i < rawTags.length; i++) {
             // Tags delimited by an equals sign are key=value tags.
             // If there's no equals, we assign the tag a value of true.
+            // Values may themselves contain '=', so split on the first one only,
+            // and unescape IRCv3 tag values in a single pass (\: \s \r \n \\).
             var tag = rawTags[i]
-            var pair = tag.split('=')
-            message.tags[pair[0]] = pair[1] || true
+            var eq = tag.indexOf('=')
+            if (eq === -1) {
+                message.tags[tag] = true
+            } else {
+                message.tags[tag.slice(0, eq)] = tag.slice(eq + 1).replace(/\\(.)/g, function(m, c) {
+                    if (c === ':') return ';'
+                    if (c === 's') return ' '
+                    if (c === 'r') return '\r'
+                    if (c === 'n') return '\n'
+                    return c
+                })
+            }
         }
 
         position = nextspace + 1
