@@ -34,7 +34,8 @@ file:///C:/path/to/kchat/index.html?channel=yourtwitchname&bg=dark&size=2&font=1
 | `kick` | Kick channel name(s) | — | Kick chat, merged alongside Twitch (either param alone works too) |
 | `theme` | `bubbles`, `compact`, `right` | default | Message style preset |
 | `avatars` | `true`/`false` | `false` | Twitch profile pictures next to names |
-| `bg` | `dark`, `black`, `gray`, `light`, or hex like `18181b` | transparent | Solid background; use for OBS docks |
+| `bg` | `dark`, `gray`, `light`, or hex like `18181b` | transparent | Solid background; use for OBS docks (`black` still works as an alias) |
+| `text` | `white`, `dark`, or hex | auto | Text color; auto switches to dark text on light backgrounds |
 | `size` | 1–3 or 8–72 | 3 | 1/2/3 = small/medium/large presets; larger numbers = exact font size in px (emotes/badges scale along) |
 | `alarms` | `true`/`false` | `false` | Animated alarm icons on highlighted rows (🚨 mention, 🆕 first-timer, 💜 channel points) |
 | `alternate` | `true`/`false` | `false` | Alternating row shading |

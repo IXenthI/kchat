@@ -43,6 +43,8 @@ Chat = {
         shadow: ('shadow' in $.QueryString ? parseInt($.QueryString.shadow) : false),
         smallCaps: ('small_caps' in $.QueryString ? ($.QueryString.small_caps.toLowerCase() === 'true') : false),
         background: ('bg' in $.QueryString ? $.QueryString.bg : false),
+        textColor: ('text' in $.QueryString ? $.QueryString.text : false),
+        lightMode: false,
         customFont: ('custom_font' in $.QueryString ? $.QueryString.custom_font : false),
         emoteScale: ('emote_scale' in $.QueryString ? parseFloat($.QueryString.emote_scale) : false),
         caps: ('caps' in $.QueryString ? ($.QueryString.caps.toLowerCase() === 'true') : false),
@@ -343,13 +345,21 @@ Chat = {
 
     load: function(callback) {
         // Background: ?bg=dark | ?bg=181818 (hex, no #). Default stays transparent for overlay use.
-        if (Chat.info.background) {
-            var bgNames = { dark: '#18181b', twitch: '#18181b', black: '#000000', gray: '#2f2f35', grey: '#2f2f35', light: '#efeff1' };
-            var bg = Chat.info.background.toLowerCase();
-            var hex = bg.replace(/[^0-9a-f]/g, '');
-            if (bgNames[bg]) document.body.style.background = bgNames[bg];
-            else if (hex.length === 3 || hex.length === 6) document.body.style.background = '#' + hex;
+        var resolveColor = function(value, names) {
+            if (!value) return null;
+            value = value.toLowerCase();
+            if (names[value]) return names[value];
+            var hex = value.replace(/[^0-9a-f]/g, '');
+            return (hex.length === 3 || hex.length === 6) ? '#' + hex : null;
+        };
+        var resolvedBg = resolveColor(Chat.info.background, { dark: '#18181b', twitch: '#18181b', black: '#000000', gray: '#2f2f35', grey: '#2f2f35', light: '#efeff1' });
+        if (resolvedBg) {
+            document.body.style.background = resolvedBg;
+            Chat.info.lightMode = tinycolor(resolvedBg).isLight();
         }
+        // Text color: ?text=dark | ?text=ffffff. Auto: dark text on light backgrounds.
+        var resolvedText = resolveColor(Chat.info.textColor, { white: '#efeff1', black: '#0e0e10', dark: '#0e0e10', gray: '#adadb8', grey: '#adadb8' });
+        if (!resolvedText && Chat.info.lightMode) resolvedText = '#0e0e10';
 
         // Load CSS. Sizes 1-3 are the classic presets; 4+ is a custom pixel size,
         // scaled with the same ratios the presets use (line 1.55x, emotes 1.25x, badges 0.82x)
@@ -387,6 +397,20 @@ Chat = {
         }
 
         var extraCSS = customSizeCSS;
+        if (resolvedText) {
+            extraCSS += '#chat_container { color: ' + resolvedText + '; }\n';
+        }
+        if (Chat.info.lightMode) {
+            // The default accent styles assume a dark backdrop — flip them
+            extraCSS += '.timestamp { color: rgba(0,0,0,.5); }\n' +
+                '.pronoun { color: rgba(0,0,0,.7); background: rgba(0,0,0,.1); }\n' +
+                '.chat_line.event_line .event_text { color: rgba(0,0,0,.75); }\n' +
+                '.chat_line.event_line { background: rgba(0,0,0,.07); }\n' +
+                '.source_shared { background: rgba(0,0,0,.12); color: rgba(0,0,0,.65); }\n' +
+                '.source_twitch { background: rgba(145,71,255,.2); color: #6427c9; }\n' +
+                '.source_kick { background: rgba(83,252,24,.25); color: #2e7d0f; }\n' +
+                '.chat_line a { color: #4353c9; }\n';
+        }
         if (Chat.info.customFont) {
             extraCSS += '.chat_line { font-family: "' + Chat.info.customFont.replace(/["<>]/g, '') + '", sans-serif !important; }\n';
         }
@@ -416,6 +440,7 @@ Chat = {
         if (Chat.info.theme && themes[Chat.info.theme]) {
             extraCSS += themes[Chat.info.theme];
             if (Chat.info.theme === 'right') extraCSS += '.chat_line { margin-left: auto; }\n';
+            if (Chat.info.theme === 'bubbles' && Chat.info.lightMode) extraCSS += '.chat_line { background: rgba(0,0,0,.07); }\n';
         }
         if (Chat.info.alternate) {
             var stripe = Chat.info.background === 'light' ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.06)';
@@ -713,8 +738,13 @@ Chat = {
             var $username = $('<span></span>');
             $username.addClass('nick');
             if (typeof(info.color) === 'string') {
-                if (tinycolor(info.color).getBrightness() <= 50) var color = tinycolor(info.color).lighten(30);
-                else var color = info.color;
+                // Nudge unreadable name colors toward the visible range for the backdrop
+                if (Chat.info.lightMode) {
+                    if (tinycolor(info.color).getBrightness() >= 175) var color = tinycolor(info.color).darken(30);
+                    else var color = info.color;
+                } else if (tinycolor(info.color).getBrightness() <= 50) {
+                    var color = tinycolor(info.color).lighten(30);
+                } else var color = info.color;
             } else {
                 const twitchColors = ["#FF0000", "#0000FF", "#008000", "#B22222", "#FF7F50", "#9ACD32", "#FF4500", "#2E8B57", "#DAA520", "#D2691E", "#5F9EA0", "#1E90FF", "#FF69B4", "#8A2BE2", "#00FF7F"];
                 var color = twitchColors[nick.charCodeAt(0) % 15];

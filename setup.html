@@ -126,9 +126,16 @@
         <div class="opt"><label>Background</label><div class="ctl">
           <select id="bg">
             <option value="">Transparent (overlay)</option><option value="dark">Dark (OBS dock)</option>
-            <option value="black">Black</option><option value="gray">Gray</option><option value="light">Light</option><option value="custom">Custom hex…</option>
+            <option value="gray">Gray</option><option value="light">Light</option><option value="custom">Custom hex…</option>
           </select>
           <input type="text" id="bg_hex" placeholder="18181b" style="width:80px;display:none">
+        </div></div>
+        <div class="opt"><label>Text color</label><div class="ctl">
+          <select id="text">
+            <option value="">Auto (matches background)</option><option value="white">White</option>
+            <option value="dark">Dark</option><option value="custom">Custom hex…</option>
+          </select>
+          <input type="text" id="text_hex" placeholder="efeff1" style="width:80px;display:none">
         </div></div>
       </div>
       <div>
@@ -192,7 +199,7 @@
 <script>
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','block','filter'];
+  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','text','text_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','block','filter'];
   var previewTimer = null;
 
   function params(forPreview) {
@@ -217,6 +224,8 @@
     var bg = $('bg').value === 'custom' ? $('bg_hex').value.trim().replace(/^#/, '') : $('bg').value;
     if (bg) p.set('bg', bg);
     else if (forPreview) p.set('bg', '0e0e10'); // transparent renders black in the preview frame; show it on near-black
+    var txt = $('text').value === 'custom' ? $('text_hex').value.trim().replace(/^#/, '') : $('text').value;
+    if (txt) p.set('text', txt);
     if ($('animate').checked) p.set('animate', 'true');
     if ($('bots').checked) p.set('bots', 'true');
     if ($('hide_commands').checked) p.set('hide_commands', 'true');
@@ -250,6 +259,7 @@
     $('fade').style.display = $('fade_on').checked ? '' : 'none';
     $('bg_hex').style.display = $('bg').value === 'custom' ? '' : 'none';
     $('size_px').style.display = $('size').value === 'custom' ? '' : 'none';
+    $('text_hex').style.display = $('text').value === 'custom' ? '' : 'none';
     clearTimeout(previewTimer);
     previewTimer = setTimeout(function() {
       $('preview').src = chatBase() + '?' + params(true);
