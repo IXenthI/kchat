@@ -50,6 +50,16 @@
   .section { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
   .section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 10px; }
   .subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); font-weight: 600; margin: 12px 0 4px; border-top: 1px solid var(--border); padding-top: 10px; }
+  /* Collapsible option groups (progressive disclosure) */
+  .grp { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .grp > summary { cursor: pointer; padding: 13px 18px; font-size: 14px; font-weight: 600; list-style: none; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+  .grp > summary::-webkit-details-marker { display: none; }
+  .grp > summary::after { content: '⌄'; color: var(--muted); font-size: 18px; line-height: 1; transition: transform .15s; }
+  .grp[open] > summary::after { transform: rotate(180deg); }
+  .grp > summary:hover { background: var(--panel2); }
+  .grp > summary .cap { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 8px; }
+  .grp-body { padding: 2px 18px 14px; }
+  .note { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
   .blockrow { display: flex; align-items: center; gap: 12px; }
   .blockrow label { width: 90px; flex-shrink: 0; }
   .blockrow input { flex: 1; }
@@ -97,9 +107,9 @@
     <input type="text" id="kick" placeholder="Kick channel (optional)" autocomplete="off" style="font-size:20px;text-align:center;padding:10px 16px;width:250px;border-color:#53fc18;">
   </div>
 
-  <div class="section">
-    <h2>Appearance</h2>
-    <div class="grid">
+  <details class="grp" open>
+    <summary>Appearance</summary>
+    <div class="grp-body"><div class="grid">
       <div>
         <div class="opt"><label>Size</label><div class="ctl">
           <select id="size">
@@ -113,13 +123,18 @@
           <option value="6">Impact</option><option value="7">Comfortaa</option><option value="8">Dancing Script</option>
           <option value="9">Indie Flower</option><option value="10">Press Start 2P</option><option value="11">Wallpoet</option>
         </select></div></div>
-        <div class="opt"><label>Custom font <span style="color:var(--muted)">(from your PC)</span></label><div class="ctl"><input type="text" id="custom_font" placeholder="e.g. Comic Sans MS"></div></div>
+        <div class="opt"><label title="A font installed on your PC">Custom font</label><div class="ctl"><input type="text" id="custom_font" placeholder="e.g. Comic Sans MS"></div></div>
         <div class="opt"><label>Stroke</label><div class="ctl"><select id="stroke">
           <option value="0">Off</option><option value="1">Thin</option><option value="2">Medium</option><option value="3">Thick</option><option value="4">Thicker</option>
         </select></div></div>
         <div class="opt"><label>Shadow</label><div class="ctl"><select id="shadow">
           <option value="0">Off</option><option value="1">Small</option><option value="2">Medium</option><option value="3">Large</option>
         </select></div></div>
+        <div class="opt"><label>Text case</label><div class="ctl"><select id="textcase">
+          <option value="">Normal</option><option value="caps">UPPERCASE</option><option value="small_caps">Small caps</option>
+        </select></div></div>
+      </div>
+      <div>
         <div class="opt"><label>Emote scale</label><div class="ctl"><input type="number" id="emote_scale" placeholder="1" min="0.5" max="3" step="0.25"></div></div>
         <div class="opt"><label>Theme</label><div class="ctl"><select id="theme">
           <option value="">Default</option><option value="bubbles">Bubbles</option>
@@ -134,51 +149,77 @@
         </div></div>
         <div class="opt"><label>Text color</label><div class="ctl">
           <select id="text">
-            <option value="">Auto (matches background)</option><option value="white">White</option>
+            <option value="">Auto</option><option value="white">White</option>
             <option value="dark">Dark</option><option value="custom">Custom hex…</option>
           </select>
           <input type="text" id="text_hex" placeholder="efeff1" style="width:80px;display:none">
         </div></div>
-        <div class="subhead">Dock <span style="text-transform:none;letter-spacing:0;font-weight:400">— auto-selected when you pick a background</span></div>
-        <div class="opt"><label>Dock mode <span style="color:var(--muted)">(scrollable, top-down like Twitch)</span></label><input type="checkbox" id="dock"></div>
-        <div class="opt"><label>Timestamps</label><input type="checkbox" id="timestamps"></div>
-        <div class="opt"><label>Clickable links</label><input type="checkbox" id="links"></div>
-        <div class="opt"><label>Mod tools + chat box <span style="color:var(--muted)">(Twitch login)</span></label><input type="checkbox" id="mod"></div>
-      </div>
-      <div>
-        <div class="opt"><label>Animate new messages</label><input type="checkbox" id="animate" checked></div>
-        <div class="opt"><label>Show bots &amp; commands</label><input type="checkbox" id="bots" checked></div>
-        <div class="opt"><label>Hide !commands</label><input type="checkbox" id="hide_commands"></div>
-        <div class="opt"><label>Fade old messages <span style="color:var(--muted)">(seconds)</span></label><div class="ctl"><input type="checkbox" id="fade_on"><input type="number" id="fade" value="30" min="1" style="width:70px;display:none"></div></div>
-        <div class="opt"><label>Text case</label><div class="ctl"><select id="textcase">
-          <option value="">Normal</option><option value="caps">UPPERCASE</option><option value="small_caps">Small caps</option>
-        </select></div></div>
         <div class="opt"><label>New line after name</label><input type="checkbox" id="nl"></div>
         <div class="opt"><label>Hide usernames</label><input type="checkbox" id="hide_usernames"></div>
-        <div class="subhead">Badges <span style="text-transform:none;letter-spacing:0;font-weight:400">— 7TV badges use the paints toggle below</span></div>
-        <div class="opt"><label>Twitch badges <span style="color:var(--muted)">(sub, mod, VIP…)</span></label><input type="checkbox" id="twitch_badges" checked></div>
-        <div class="opt"><label>BTTV badges</label><input type="checkbox" id="bttv_badges" checked></div>
-        <div class="opt"><label>FFZ badges</label><input type="checkbox" id="ffz_badges" checked></div>
-        <div class="opt"><label>Chatterino badges</label><input type="checkbox" id="chatterino_badges" checked></div>
-        <div class="opt"><label>Sub / raid / announce events</label><input type="checkbox" id="events" checked></div>
-        <div class="opt"><label>Highlight first-timers &amp; channel points</label><input type="checkbox" id="highlights" checked></div>
-        <div class="opt"><label>Highlight @mentions of you</label><input type="checkbox" id="mention" checked></div>
-        <div class="opt"><label>Alarm icons on highlights <span style="color:var(--muted)">🚨 animated</span></label><input type="checkbox" id="alarms"></div>
-        <div class="opt"><label>Alternating row shading</label><input type="checkbox" id="alternate"></div>
-        <div class="opt"><label>7TV name paints &amp; badges</label><input type="checkbox" id="paints" checked></div>
-        <div class="opt"><label>Pronouns <span style="color:var(--muted)">(pronouns.alejo.io)</span></label><input type="checkbox" id="pronouns"></div>
-        <div class="opt"><label>Avatars <span style="color:var(--muted)">(Twitch profile pics)</span></label><input type="checkbox" id="avatars"></div>
+      </div>
+    </div></div>
+  </details>
+
+  <details class="grp">
+    <summary>Chat features</summary>
+    <div class="grp-body"><div class="grid">
+      <div>
+        <div class="opt"><label>Animate new messages</label><input type="checkbox" id="animate" checked></div>
+        <div class="opt"><label>Show bots</label><input type="checkbox" id="bots" checked></div>
+        <div class="opt"><label>Hide !commands</label><input type="checkbox" id="hide_commands"></div>
+        <div class="opt"><label title="Remove messages after N seconds">Fade old messages</label><div class="ctl"><input type="checkbox" id="fade_on"><input type="number" id="fade" value="30" min="1" style="width:70px;display:none"></div></div>
+        <div class="opt"><label>Sub/raid/announce events</label><input type="checkbox" id="events" checked></div>
+        <div class="opt"><label title="Tint first-timer and channel-point rows">Highlight first-timers</label><input type="checkbox" id="highlights" checked></div>
+      </div>
+      <div>
+        <div class="opt"><label>Highlight @mentions</label><input type="checkbox" id="mention" checked></div>
+        <div class="opt"><label title="Animated 🚨 on highlighted rows">Alarm icons</label><input type="checkbox" id="alarms"></div>
+        <div class="opt"><label>Alternating rows</label><input type="checkbox" id="alternate"></div>
+        <div class="opt"><label>7TV paints &amp; badges</label><input type="checkbox" id="paints" checked></div>
+        <div class="opt"><label title="From pronouns.alejo.io">Pronouns</label><input type="checkbox" id="pronouns"></div>
+        <div class="opt"><label title="Twitch profile pictures">Avatars</label><input type="checkbox" id="avatars"></div>
+      </div>
+    </div></div>
+  </details>
+
+  <details class="grp">
+    <summary>Badges</summary>
+    <div class="grp-body">
+      <p class="note">7TV badges use the “7TV paints &amp; badges” toggle under Chat features.</p>
+      <div class="grid">
+        <div>
+          <div class="opt"><label>Twitch badges</label><input type="checkbox" id="twitch_badges" checked></div>
+          <div class="opt"><label>BTTV badges</label><input type="checkbox" id="bttv_badges" checked></div>
+        </div>
+        <div>
+          <div class="opt"><label>FFZ badges</label><input type="checkbox" id="ffz_badges" checked></div>
+          <div class="opt"><label>Chatterino badges</label><input type="checkbox" id="chatterino_badges" checked></div>
+        </div>
       </div>
     </div>
-    <div class="blockrow" style="margin-top:10px">
-      <label>Block list</label>
-      <input type="text" id="block" placeholder="comma separated usernames to hide">
+  </details>
+
+  <details class="grp" id="dockgrp">
+    <summary>Dock &amp; mod tools <span class="cap">auto-set by background</span></summary>
+    <div class="grp-body"><div class="grid">
+      <div>
+        <div class="opt"><label title="Scrollable, top-down like the Twitch panel">Dock mode</label><input type="checkbox" id="dock"></div>
+        <div class="opt"><label>Timestamps</label><input type="checkbox" id="timestamps"></div>
+      </div>
+      <div>
+        <div class="opt"><label>Clickable links</label><input type="checkbox" id="links"></div>
+        <div class="opt"><label title="Delete/timeout/ban + chat box (Twitch login)">Mod tools + chat box</label><input type="checkbox" id="mod"></div>
+      </div>
+    </div></div>
+  </details>
+
+  <details class="grp">
+    <summary>Filters</summary>
+    <div class="grp-body">
+      <div class="blockrow"><label>Block list</label><input type="text" id="block" placeholder="comma separated usernames to hide"></div>
+      <div class="blockrow" style="margin-top:10px"><label>Word filter</label><input type="text" id="filter" placeholder="comma separated words to hide"></div>
     </div>
-    <div class="blockrow" style="margin-top:10px">
-      <label>Word filter</label>
-      <input type="text" id="filter" placeholder="comma separated words — hide messages containing them">
-    </div>
-  </div>
+  </details>
 
   <div class="section">
     <h2>Preview</h2>
@@ -292,6 +333,7 @@
   $('bg').addEventListener('change', function() {
     var solid = $('bg').value !== '';
     ['dock', 'timestamps', 'links'].forEach(function(id) { $(id).checked = solid; });
+    if (solid) $('dockgrp').open = true; // reveal what just got auto-selected
     refresh();
   });
 
