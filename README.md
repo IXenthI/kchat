@@ -1,13 +1,13 @@
-# kChat
+# KeyChat
 
 A Twitch **and Kick** chat overlay / OBS chat dock with 7TV, BTTV, and FrankerFaceZ emote support — including **merged multi-channel chat** (co-streams, simulcasts) in one view. Fully static — no server, no API keys, no build step. Open `index.html` from disk or any static host and it just works.
 
-kChat is a maintained fork of [jChat](https://github.com/giambaJ/jChat) by giambaJ (GPL-3.0), modernized after several Twitch/7TV API shutdowns broke the original, and inspired by [ChatIS](https://chatis.is2511.com/) by IS2511.
+KeyChat is a maintained fork of [jChat](https://github.com/giambaJ/jChat) by giambaJ (GPL-3.0), modernized after several Twitch/7TV API shutdowns broke the original, and inspired by [ChatIS](https://chatis.is2511.com/) by IS2511.
 
 ## Why this fork exists
 
 - **Original jChat broke**: it relied on Twitch's retired Kraken (v5) API, the retired `badges.twitch.tv` service, and 7TV's retired v2 API.
-- **kChat needs zero credentials**: the channel ID comes from Twitch IRC's own `ROOMSTATE` tag, emotes come from the public 7TV v3 / BTTV / FFZ APIs, and Twitch badges come from the public [IVR API](https://api.ivr.fi/) — no client ID, no OAuth, nothing to configure.
+- **KeyChat needs zero credentials**: the channel ID comes from Twitch IRC's own `ROOMSTATE` tag, emotes come from the public 7TV v3 / BTTV / FFZ APIs, and Twitch badges come from the public [IVR API](https://api.ivr.fi/) — no client ID, no OAuth, nothing to configure.
 - **Dock mode**: a `bg=` parameter gives the page a solid background, so it works as an OBS custom browser dock without blinding you (transparent overlays render on white in docks).
 
 ## Usage
@@ -23,7 +23,7 @@ index.html?channel=YOURTWITCHNAME
 As a local file that looks like:
 
 ```
-file:///C:/path/to/kchat/index.html?channel=yourtwitchname&bg=dark&size=2&font=1&animate=true&bots=true
+file:///C:/path/to/keychat/index.html?channel=yourtwitchname&bg=dark&size=2&font=1&animate=true&bots=true
 ```
 
 ### URL parameters
@@ -85,7 +85,7 @@ Moderators or the broadcaster can type `!refreshoverlay` in chat to reload emote
 
 ## Mod tools & chat box (optional)
 
-Add `mod=true` to a **docked** kChat URL and a "Log in with Twitch" button appears. After logging in (OAuth happens entirely in your browser — no server, the token never leaves your machine):
+Add `mod=true` to a **docked** KeyChat URL and a "Log in with Twitch" button appears. After logging in (OAuth happens entirely in your browser — no server, the token never leaves your machine):
 
 - Hover any Twitch message for 🗑 delete, ⏱ 10-minute timeout, 🔨 ban (timeout/ban need a second click within 3s to confirm)
 - A chat box appears at the bottom so you can talk in your primary channel from the dock
@@ -97,9 +97,9 @@ Requires the hosted (https) version — OAuth can't redirect to `file://` pages.
 
 It's a static folder — host it anywhere:
 
-- **GitHub Pages**: fork/push this folder, enable Pages, share `https://you.github.io/kchat/?channel=…`
+- **GitHub Pages**: fork/push this folder, enable Pages, share `https://you.github.io/keychat/?channel=…`
 - **Local**: send the folder; they use a `file:///` URL as above.
 
 ## License
 
-GPL-3.0, same as jChat. See [LICENSE](LICENSE). Original work © giambaJ and jChat contributors; modernization changes © 2026 kChat contributors.
+GPL-3.0, same as jChat. See [LICENSE](LICENSE). Original work © giambaJ and jChat contributors; modernization changes © 2026 KeyChat contributors.

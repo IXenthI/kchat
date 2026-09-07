@@ -172,7 +172,7 @@ body {
 .alarm {
     display: inline-block;
     margin-left: 0.35em;
-    animation: kchat-pulse 1.1s ease-in-out infinite;
+    animation: keychat-pulse 1.1s ease-in-out infinite;
 }
 
 .mod_tools {
@@ -204,7 +204,7 @@ body {
 .mod_tools button.armed {
     background: #e9113c;
     border-color: #ff5a5a;
-    animation: kchat-pulse 0.5s ease-in-out infinite;
+    animation: keychat-pulse 0.5s ease-in-out infinite;
 }
 
 #twitch_login {
@@ -264,7 +264,7 @@ body {
     font-size: 14px;
 }
 
-@keyframes kchat-pulse {
+@keyframes keychat-pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.35); }
 }

@@ -238,7 +238,7 @@ Chat = {
                     if (c.old_value && c.old_value.name) delete Chat.info.emotes[c.old_value.name];
                     if (c.value) Chat.addSevenTVEmote(c.value);
                 });
-                console.log('kChat: 7TV emotes updated live');
+                console.log('KeyChat: 7TV emotes updated live');
             } else if (type === 'cosmetic.create' && body.object) {
                 var obj = body.object;
                 if (obj.kind === 'PAINT' && obj.data) Chat.storeSevenTVPaint(obj.data.id || obj.id, obj.data);
@@ -928,7 +928,7 @@ Chat = {
 
     // Preview mode for the setup page: no IRC, canned messages using real global emotes
     demo: function() {
-        $(document).prop('title', 'kChat • preview');
+        $(document).prop('title', 'KeyChat • preview');
         Chat.info.channel = 'demo';
         Chat.info.channels = ['demo'];
         Chat.info.mentionName = 'demo';
@@ -954,7 +954,7 @@ Chat = {
                 Chat.info.userAvatars[key] = makeAvatar(u[0].charAt(0), u[1]);
             });
             var lines = [
-                'welcome to the kChat preview {e}',
+                'welcome to the KeyChat preview {e}',
                 'this is what your chat will look like {e} {e}',
                 'these are global emotes — your channel 7TV/BTTV/FFZ emotes load on the real page too',
                 'GG {e}',
@@ -975,7 +975,7 @@ Chat = {
                 if (i === 4) Chat.writeEvent('🎉', '12 raiders from PixelPal have joined!', 'raid');
                 if (i === 6) Chat.writeEvent('🐌', 'Slow mode: 10s', 'mode');
                 if (i === 3 && Chat.info.multiSource) {
-                    Chat.write('kicker', { id: 'demo-k' + i, color: '#53fc18', 'display-name': 'KickChatter', kickBadges: [{ type: 'og', text: 'OG' }] }, 'hi from the green side', { platform: 'kick', channel: 'demo' });
+                    Chat.write('kicker', { id: 'demo-k' + i, color: '#53fc18', 'display-name': 'KicKeyChatter', kickBadges: [{ type: 'og', text: 'OG' }] }, 'hi from the green side', { platform: 'kick', channel: 'demo' });
                 }
                 i++;
                 setTimeout(tick, i < 5 ? 600 : 2500);
@@ -992,7 +992,7 @@ Chat = {
             var frag = new URLSearchParams(window.location.hash.slice(1));
             var token = frag.get('access_token');
             if (token) {
-                try { localStorage.setItem('kchat_token', token); } catch (e) {}
+                try { localStorage.setItem('keychat_token', token); } catch (e) {}
                 var qs = '';
                 try { qs = atob(frag.get('state') || ''); } catch (e) {}
                 window.location.replace(window.location.pathname + (qs ? '?' + qs : ''));
@@ -1000,15 +1000,15 @@ Chat = {
             }
         }
         var stored = null;
-        try { stored = localStorage.getItem('kchat_token'); } catch (e) {}
+        try { stored = localStorage.getItem('keychat_token'); } catch (e) {}
         if (!stored) { callback(); return; }
         $.ajax({ url: 'https://id.twitch.tv/oauth2/validate', headers: { 'Authorization': 'OAuth ' + stored } })
             .done(function(res) {
                 Chat.auth = { token: stored, login: res.login, userId: res.user_id, scopes: res.scopes || [] };
-                console.log('kChat: logged in as ' + res.login);
+                console.log('KeyChat: logged in as ' + res.login);
             })
             .fail(function() {
-                try { localStorage.removeItem('kchat_token'); } catch (e) {}
+                try { localStorage.removeItem('keychat_token'); } catch (e) {}
             })
             .always(function() { callback(); });
     },
@@ -1017,7 +1017,7 @@ Chat = {
         var state = '';
         try { state = btoa(window.location.search.slice(1)); } catch (e) {}
         return 'https://id.twitch.tv/oauth2/authorize' +
-            '?client_id=' + encodeURIComponent(KCHAT_CLIENT_ID) +
+            '?client_id=' + encodeURIComponent(KEYCHAT_CLIENT_ID) +
             '&redirect_uri=' + encodeURIComponent(window.location.origin + window.location.pathname) +
             '&response_type=token' +
             '&scope=' + encodeURIComponent('chat:read chat:edit moderator:manage:banned_users moderator:manage:chat_messages') +
@@ -1028,7 +1028,7 @@ Chat = {
         return $.ajax({
             url: 'https://api.twitch.tv/helix/' + path,
             method: method,
-            headers: { 'Authorization': 'Bearer ' + Chat.auth.token, 'Client-Id': KCHAT_CLIENT_ID },
+            headers: { 'Authorization': 'Bearer ' + Chat.auth.token, 'Client-Id': KEYCHAT_CLIENT_ID },
             contentType: 'application/json',
             data: body ? JSON.stringify(body) : undefined
         });
@@ -1096,7 +1096,7 @@ Chat = {
     setupLoginButton: function() {
         var $btn = $('<button id="twitch_login">Log in with Twitch</button>').appendTo('body');
         $btn.on('click', function() {
-            if (!KCHAT_CLIENT_ID) {
+            if (!KEYCHAT_CLIENT_ID) {
                 Chat.writeEvent('⚠️', 'No Twitch Client ID configured — see README (mod tools section)', 'mode');
                 return;
             }
@@ -1139,12 +1139,12 @@ Chat = {
     },
 
     connectIRC: function() {
-        console.log('kChat: Connecting to IRC server...');
+        console.log('KeyChat: Connecting to IRC server...');
         var socket = new ReconnectingWebSocket('wss://irc-ws.chat.twitch.tv', 'irc', { reconnectInterval: 2000 });
         Chat.ircSocket = socket;
 
         socket.onopen = function() {
-            console.log('kChat: Connected');
+            console.log('KeyChat: Connected');
             if (Chat.auth && Chat.auth.scopes.indexOf('chat:read') > -1) {
                 socket.send('PASS oauth:' + Chat.auth.token + '\r\n');
                 socket.send('NICK ' + Chat.auth.login + '\r\n');
@@ -1157,7 +1157,7 @@ Chat = {
         };
 
         socket.onclose = function() {
-            console.log('kChat: Disconnected');
+            console.log('KeyChat: Disconnected');
         };
 
         socket.onmessage = function(data) {
@@ -1172,7 +1172,7 @@ Chat = {
                         socket.send('PONG ' + message.params[0]);
                         return;
                     case "JOIN":
-                        console.log('kChat: Joined channel ' + message.params[0]);
+                        console.log('KeyChat: Joined channel ' + message.params[0]);
                         return;
                     case "ROOMSTATE":
                         // The room-id tag replaces the retired Kraken user lookup
@@ -1181,7 +1181,7 @@ Chat = {
                             Chat.info.channelIDs[chan] = message.tags['room-id'];
                             Chat.info.roomNames[message.tags['room-id']] = chan;
                             if (chan === Chat.info.channel) Chat.info.channelID = message.tags['room-id'];
-                            console.log('kChat: Channel ID for ' + chan + ' is ' + message.tags['room-id']);
+                            console.log('KeyChat: Channel ID for ' + chan + ' is ' + message.tags['room-id']);
                             Chat.loadChannelData(message.tags['room-id'], chan);
                         }
                         Chat.handleRoomstateModes(chan, message.tags);
@@ -1236,7 +1236,7 @@ Chat = {
                             if (flag && chan === Chat.info.channel && (!Chat.lastEmoteRefresh || Date.now() - Chat.lastEmoteRefresh > 60000)) {
                                 Chat.lastEmoteRefresh = Date.now();
                                 Chat.refreshEmotes();
-                                console.log('kChat: Refreshing emotes...');
+                                console.log('KeyChat: Refreshing emotes...');
                                 return;
                             }
                         }
@@ -1281,7 +1281,7 @@ Chat = {
                 var frame;
                 try { frame = JSON.parse(e.data); } catch (err) { return; }
                 if (frame.event === 'pusher:connection_established') {
-                    console.log('kChat: Kick connected');
+                    console.log('KeyChat: Kick connected');
                     subscribeAll();
                     return;
                 }
@@ -1319,22 +1319,22 @@ Chat = {
             $.getJSON('https://kick.com/api/v2/channels/' + encodeURIComponent(slug))
                 .done(function(res) {
                     if (!res || !res.chatroom || !res.chatroom.id) {
-                        console.log('kChat: no chatroom found for Kick channel ' + slug);
+                        console.log('KeyChat: no chatroom found for Kick channel ' + slug);
                         return;
                     }
                     slugToChatroom[slug] = res.chatroom.id;
                     chatroomToSlug[res.chatroom.id] = slug;
-                    console.log('kChat: Kick chatroom for ' + slug + ' is ' + res.chatroom.id);
+                    console.log('KeyChat: Kick chatroom for ' + slug + ' is ' + res.chatroom.id);
                     if (!socket) connect();
                     else subscribeAll();
                 })
                 .fail(function(xhr) {
                     if (xhr && xhr.status === 404) {
-                        console.log('kChat: Kick channel ' + slug + ' does not exist');
+                        console.log('KeyChat: Kick channel ' + slug + ' does not exist');
                         return;
                     }
                     if (attempt >= 6) {
-                        console.log('kChat: giving up resolving Kick channel ' + slug);
+                        console.log('KeyChat: giving up resolving Kick channel ' + slug);
                         return;
                     }
                     setTimeout(function() { resolveSlug(slug, attempt + 1); }, Math.min(5000 * Math.pow(2, attempt), 60000));
