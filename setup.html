@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kChat Setup</title>
+<style>
+  :root { --bg: #18181b; --panel: #1f1f23; --input: #26262c; --border: #3a3a3d; --text: #efeff1; --muted: #adadb8; --accent: #9147ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, sans-serif; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 28px; margin: 8px 0 4px; }
+  h1 small { color: var(--muted); font-size: 14px; font-weight: normal; margin-left: 8px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .sub a { color: var(--accent); }
+  .channel-row { display: flex; justify-content: center; margin-bottom: 20px; }
+  .channel-row input { font-size: 20px; text-align: center; padding: 10px 16px; width: 320px; }
+  input, select { background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+  .opt label { font-size: 15px; }
+  .opt .ctl { display: flex; align-items: center; gap: 8px; }
+  .opt select { min-width: 150px; }
+  .opt input[type=text], .opt input[type=number] { width: 150px; }
+  input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+  .section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+  .section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 10px; }
+  .blockrow { display: flex; align-items: center; gap: 12px; }
+  .blockrow input { flex: 1; }
+  .preview-box { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 320px; background: #000; }
+  .preview-box iframe { width: 100%; height: 100%; border: none; }
+  .urlbar { display: flex; gap: 8px; margin-top: 12px; }
+  .urlbar input { flex: 1; font-family: Consolas, monospace; font-size: 13px; color: #c9d1ff; }
+  button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 18px; font-size: 15px; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  button.ghost { background: var(--input); border: 1px solid var(--border); }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.5; }
+  .hint code { background: var(--input); padding: 1px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>kChat <small>7TV · BTTV · FFZ chat overlay &amp; OBS dock</small></h1>
+  <p class="sub">No accounts, no keys — pick your options and copy the URL. A fork of <a href="https://github.com/giambaJ/jChat">jChat</a>, GPL-3.0.</p>
+
+  <div class="channel-row"><input type="text" id="channel" placeholder="Channel name" autocomplete="off"></div>
+
+  <div class="section">
+    <h2>Appearance</h2>
+    <div class="grid">
+      <div>
+        <div class="opt"><label>Size</label><div class="ctl"><select id="size">
+          <option value="1">Small</option><option value="2" selected>Medium</option><option value="3">Large</option>
+        </select></div></div>
+        <div class="opt"><label>Font</label><div class="ctl"><select id="font">
+          <option value="0">Baloo Tammudu</option><option value="1">Segoe UI</option><option value="2">Roboto</option>
+          <option value="3">Lato</option><option value="4">Noto Sans</option><option value="5">Source Code Pro</option>
+          <option value="6">Impact</option><option value="7">Comfortaa</option><option value="8">Dancing Script</option>
+          <option value="9">Indie Flower</option><option value="10">Press Start 2P</option><option value="11">Wallpoet</option>
+        </select></div></div>
+        <div class="opt"><label>Custom font <span style="color:var(--muted)">(from your PC)</span></label><div class="ctl"><input type="text" id="custom_font" placeholder="e.g. Comic Sans MS"></div></div>
+        <div class="opt"><label>Stroke</label><div class="ctl"><select id="stroke">
+          <option value="0">Off</option><option value="1">Thin</option><option value="2">Medium</option><option value="3">Thick</option><option value="4">Thicker</option>
+        </select></div></div>
+        <div class="opt"><label>Shadow</label><div class="ctl"><select id="shadow">
+          <option value="0">Off</option><option value="1">Small</option><option value="2">Medium</option><option value="3">Large</option>
+        </select></div></div>
+        <div class="opt"><label>Emote scale</label><div class="ctl"><input type="number" id="emote_scale" placeholder="1" min="0.5" max="3" step="0.25"></div></div>
+        <div class="opt"><label>Background</label><div class="ctl">
+          <select id="bg">
+            <option value="">Transparent (overlay)</option><option value="dark">Dark (OBS dock)</option>
+            <option value="black">Black</option><option value="gray">Gray</option><option value="light">Light</option><option value="custom">Custom hex…</option>
+          </select>
+          <input type="text" id="bg_hex" placeholder="18181b" style="width:80px;display:none">
+        </div></div>
+      </div>
+      <div>
+        <div class="opt"><label>Animate new messages</label><input type="checkbox" id="animate" checked></div>
+        <div class="opt"><label>Show bots &amp; commands</label><input type="checkbox" id="bots" checked></div>
+        <div class="opt"><label>Hide !commands</label><input type="checkbox" id="hide_commands"></div>
+        <div class="opt"><label>Fade old messages <span style="color:var(--muted)">(seconds)</span></label><div class="ctl"><input type="checkbox" id="fade_on"><input type="number" id="fade" value="30" min="1" style="width:70px;display:none"></div></div>
+        <div class="opt"><label>CAPS</label><input type="checkbox" id="caps"></div>
+        <div class="opt"><label>Small caps</label><input type="checkbox" id="small_caps"></div>
+        <div class="opt"><label>New line after name</label><input type="checkbox" id="nl"></div>
+        <div class="opt"><label>Hide usernames</label><input type="checkbox" id="hide_usernames"></div>
+        <div class="opt"><label>Hide badges</label><input type="checkbox" id="hide_badges"></div>
+      </div>
+    </div>
+    <div class="blockrow" style="margin-top:10px">
+      <label>Block list</label>
+      <input type="text" id="block" placeholder="comma separated usernames to hide">
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Preview</h2>
+    <div class="preview-box"><iframe id="preview"></iframe></div>
+  </div>
+
+  <div class="section">
+    <h2>Your URL</h2>
+    <div class="urlbar">
+      <input type="text" id="url" readonly>
+      <button id="copy">Copy</button>
+    </div>
+    <p class="hint">
+      <b>OBS overlay:</b> add a Browser source with this URL (keep Background = Transparent).<br>
+      <b>OBS chat dock:</b> Docks → Custom Browser Docks, paste the URL (pick Background = Dark).<br>
+      Running from a downloaded folder? The URL starts with <code>file:///</code> — that works in OBS too.
+    </p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var $ = function(id) { return document.getElementById(id); };
+  var controls = ['channel','size','font','custom_font','stroke','shadow','emote_scale','bg','bg_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','block'];
+  var previewTimer = null;
+
+  function params(forPreview) {
+    var p = new URLSearchParams();
+    if (forPreview) p.set('demo', 'true');
+    else if ($('channel').value.trim()) p.set('channel', $('channel').value.trim().toLowerCase().replace(/^[@#]/, ''));
+    p.set('size', $('size').value);
+    if ($('font').value !== '0') p.set('font', $('font').value);
+    if ($('custom_font').value.trim()) p.set('custom_font', $('custom_font').value.trim());
+    if ($('stroke').value !== '0') p.set('stroke', $('stroke').value);
+    if ($('shadow').value !== '0') p.set('shadow', $('shadow').value);
+    if ($('emote_scale').value && parseFloat($('emote_scale').value) !== 1) p.set('emote_scale', $('emote_scale').value);
+    var bg = $('bg').value === 'custom' ? $('bg_hex').value.trim().replace(/^#/, '') : $('bg').value;
+    if (bg) p.set('bg', bg);
+    else if (forPreview) p.set('bg', '0e0e10'); // transparent renders black in the preview frame; show it on near-black
+    if ($('animate').checked) p.set('animate', 'true');
+    if ($('bots').checked) p.set('bots', 'true');
+    if ($('hide_commands').checked) p.set('hide_commands', 'true');
+    if ($('fade_on').checked && $('fade').value) p.set('fade', $('fade').value);
+    if ($('caps').checked) p.set('caps', 'true');
+    if ($('small_caps').checked) p.set('small_caps', 'true');
+    if ($('nl').checked) p.set('nl', 'true');
+    if ($('hide_usernames').checked) p.set('hide_usernames', 'true');
+    if ($('hide_badges').checked) p.set('hide_badges', 'true');
+    if ($('block').value.trim()) p.set('block', $('block').value.trim().toLowerCase().replace(/\s+/g, ','));
+    return p.toString();
+  }
+
+  function chatBase() {
+    return new URL('index.html', window.location.href).href;
+  }
+
+  function refresh() {
+    $('url').value = chatBase() + '?' + params(false);
+    $('fade').style.display = $('fade_on').checked ? '' : 'none';
+    $('bg_hex').style.display = $('bg').value === 'custom' ? '' : 'none';
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function() {
+      $('preview').src = chatBase() + '?' + params(true);
+    }, 500);
+  }
+
+  controls.forEach(function(id) {
+    $(id).addEventListener('input', refresh);
+    $(id).addEventListener('change', refresh);
+  });
+
+  $('copy').addEventListener('click', function() {
+    $('url').select();
+    var done = function() { $('copy').textContent = 'Copied!'; setTimeout(function() { $('copy').textContent = 'Copy'; }, 1500); };
+    if (navigator.clipboard) navigator.clipboard.writeText($('url').value).then(done);
+    else { document.execCommand('copy'); done(); }
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>

@@ -12,7 +12,9 @@ kChat is a maintained fork of [jChat](https://github.com/giambaJ/jChat) by giamb
 
 ## Usage
 
-Point a browser source (overlay) or custom browser dock (chat panel) at:
+**Easy way:** open `setup.html` (or the bare hosted URL — it redirects there). Pick your options, watch the live preview, hit Copy. No URL crafting needed.
+
+**Manual way:** point a browser source (overlay) or custom browser dock (chat panel) at:
 
 ```
 index.html?channel=YOURTWITCHNAME
@@ -32,6 +34,8 @@ file:///C:/path/to/kchat/index.html?channel=yourtwitchname&bg=dark&size=2&font=1
 | `bg` | `dark`, `black`, `gray`, `light`, or hex like `18181b` | transparent | Solid background; use for OBS docks |
 | `size` | 1–3 | 3 | Text size (small/medium/large) |
 | `font` | 0–11 | 0 | 0 BalooTammudu, 1 SegoeUI, 2 Roboto, 3 Lato, 4 NotoSans, 5 SourceCodePro, 6 Impact, 7 Comfortaa, 8 DancingScript, 9 IndieFlower, 10 PressStart2P, 11 Wallpoet |
+| `custom_font` | any installed font name | — | Overrides `font` with a font from the viewer's PC |
+| `emote_scale` | 0.5–3 | 1 | Multiplies emote size |
 | `stroke` | 1–4 | off | Text outline (for overlay readability) |
 | `shadow` | 1–3 | off | Text shadow |
 | `animate` | `true`/`false` | `false` | Slide-in animation for new messages |
@@ -40,7 +44,11 @@ file:///C:/path/to/kchat/index.html?channel=yourtwitchname&bg=dark&size=2&font=1
 | `hide_badges` | `true`/`false` | `false` | Hide all badges |
 | `fade` | seconds | off | Remove messages after N seconds |
 | `small_caps` | `true`/`false` | `false` | Small caps text |
+| `caps` | `true`/`false` | `false` | ALL CAPS messages |
+| `nl` | `true`/`false` | `false` | Line break after the username |
+| `hide_usernames` | `true`/`false` | `false` | Message text only |
 | `block` | comma-separated names | — | Hide specific users |
+| `demo` | `true`/`false` | `false` | Preview mode: canned messages, no IRC (used by setup.html) |
 
 ### OBS setup
 

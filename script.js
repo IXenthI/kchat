@@ -31,6 +31,12 @@ Chat = {
         shadow: ('shadow' in $.QueryString ? parseInt($.QueryString.shadow) : false),
         smallCaps: ('small_caps' in $.QueryString ? ($.QueryString.small_caps.toLowerCase() === 'true') : false),
         background: ('bg' in $.QueryString ? $.QueryString.bg : false),
+        customFont: ('custom_font' in $.QueryString ? $.QueryString.custom_font : false),
+        emoteScale: ('emote_scale' in $.QueryString ? parseFloat($.QueryString.emote_scale) : false),
+        caps: ('caps' in $.QueryString ? ($.QueryString.caps.toLowerCase() === 'true') : false),
+        nlAfterName: ('nl' in $.QueryString ? ($.QueryString.nl.toLowerCase() === 'true') : false),
+        hideUsernames: ('hide_usernames' in $.QueryString ? ($.QueryString.hide_usernames.toLowerCase() === 'true') : false),
+        demo: ('demo' in $.QueryString ? ($.QueryString.demo.toLowerCase() === 'true') : false),
         emotes: {},
         badges: {},
         userBadges: {},
@@ -46,8 +52,8 @@ Chat = {
 
     loadEmotes: function(channelID) {
         Chat.info.emotes = {};
-        // Load BTTV, FFZ and 7TV emotes
-        ['emotes/global', 'users/twitch/' + encodeURIComponent(channelID)].forEach(endpoint => {
+        // Load BTTV, FFZ and 7TV emotes (global sets only when no channel ID, e.g. demo mode)
+        (channelID ? ['emotes/global', 'users/twitch/' + encodeURIComponent(channelID)] : ['emotes/global']).forEach(endpoint => {
             $.getJSON('https://api.betterttv.net/3/cached/frankerfacez/' + endpoint).done(function(res) {
                 res.forEach(emote => {
                     if (emote.images['4x']) {
@@ -66,7 +72,7 @@ Chat = {
             });
         });
 
-        ['emotes/global', 'users/twitch/' + encodeURIComponent(channelID)].forEach(endpoint => {
+        (channelID ? ['emotes/global', 'users/twitch/' + encodeURIComponent(channelID)] : ['emotes/global']).forEach(endpoint => {
             $.getJSON('https://api.betterttv.net/3/cached/' + endpoint).done(function(res) {
                 if (!Array.isArray(res)) {
                     res = res.channelEmotes.concat(res.sharedEmotes);
@@ -82,7 +88,7 @@ Chat = {
         });
 
         // 7TV v3 API (v2 was shut down)
-        ['https://7tv.io/v3/emote-sets/global', 'https://7tv.io/v3/users/twitch/' + encodeURIComponent(channelID)].forEach(url => {
+        (channelID ? ['https://7tv.io/v3/emote-sets/global', 'https://7tv.io/v3/users/twitch/' + encodeURIComponent(channelID)] : ['https://7tv.io/v3/emote-sets/global']).forEach(url => {
             $.getJSON(url).done(function(res) {
                 var emotes = res.emotes || (res.emote_set && res.emote_set.emotes) || [];
                 emotes.forEach(emote => {
@@ -142,6 +148,26 @@ Chat = {
         }
         if (Chat.info.smallCaps) {
             appendCSS('variant', 'SmallCaps');
+        }
+
+        var extraCSS = '';
+        if (Chat.info.customFont) {
+            extraCSS += '.chat_line { font-family: "' + Chat.info.customFont.replace(/["<>]/g, '') + '", sans-serif !important; }\n';
+        }
+        if (Chat.info.emoteScale && Chat.info.emoteScale > 0) {
+            extraCSS += 'img.emote, img.emoji, img.cheer_emote { zoom: ' + Chat.info.emoteScale + '; }\n';
+        }
+        if (Chat.info.caps) {
+            extraCSS += '.message { text-transform: uppercase; }\n';
+        }
+        if (Chat.info.nlAfterName) {
+            extraCSS += '.message { display: block; }\n';
+        }
+        if (Chat.info.hideUsernames) {
+            extraCSS += '.nick, .colon { display: none; }\n';
+        }
+        if (extraCSS) {
+            $('<style></style>').text(extraCSS).appendTo('head');
         }
 
         // Twitch badges via IVR (badges.twitch.tv and Kraken are gone; Helix needs auth).
@@ -474,6 +500,40 @@ Chat = {
         }, 200);
     },
 
+    // Preview mode for the setup page: no IRC, canned messages using real global emotes
+    demo: function() {
+        $(document).prop('title', 'kChat • preview');
+        Chat.info.channel = 'demo';
+        Chat.load(function() {
+            Chat.loadEmotes(null);
+            var users = [
+                ['PixelPal', '#FF69B4'],
+                ['StreamFan42', '#1E90FF'],
+                ['ModestMod', '#2E8B57', 'moderator/1'],
+                ['EmoteEnjoyer', '#DAA520'],
+                ['LurkerLarry', '#8A2BE2']
+            ];
+            var lines = [
+                'welcome to the kChat preview {e}',
+                'this is what your chat will look like {e} {e}',
+                'these are global emotes — your channel 7TV/BTTV/FFZ emotes load on the real page too',
+                'GG {e}',
+                'nice {e} 🎉'
+            ];
+            var i = 0;
+            setTimeout(function tick() {
+                var u = users[i % users.length];
+                var msg = lines[i % lines.length].replace(/\{e\}/g, function() {
+                    var keys = Object.keys(Chat.info.emotes);
+                    return keys.length ? keys[Math.floor(Math.random() * keys.length)] : '👍';
+                });
+                Chat.write(u[0].toLowerCase(), { id: 'demo-' + i, color: u[1], 'display-name': u[0], badges: u[2] }, msg);
+                i++;
+                setTimeout(tick, i < 5 ? 600 : 2500);
+            }, 1200);
+        });
+    },
+
     connect: function(channel) {
         Chat.info.channel = channel;
         var title = $(document).prop('title');
@@ -568,14 +628,12 @@ Chat = {
 };
 
 $(document).ready(function() {
+    if (Chat.info.demo) {
+        Chat.demo();
+        return;
+    }
     if (!$.QueryString.channel) {
-        $('#chat_container').html(
-            '<div style="color:#efeff1;background:#18181b;font-family:sans-serif;font-size:16px;padding:16px;border-radius:8px;line-height:1.6;">' +
-            '<b>kChat</b> is running, but no channel is set.<br>' +
-            'Add <code style="background:#3a3a3d;padding:2px 6px;border-radius:4px;">?channel=yourtwitchname</code> to the URL.<br>' +
-            'Optional: <code style="background:#3a3a3d;padding:2px 6px;border-radius:4px;">&amp;bg=dark</code> for a dark background (OBS docks), ' +
-            '<code style="background:#3a3a3d;padding:2px 6px;border-radius:4px;">&amp;size=2&amp;font=1&amp;animate=true&amp;bots=true</code> to taste.' +
-            '</div>');
+        window.location.replace('setup.html');
         return;
     }
     Chat.connect($.QueryString.channel.toLowerCase());
