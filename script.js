@@ -1093,6 +1093,9 @@ Chat = {
     helix: function(method, path, body) {
         return $.ajax({
             url: 'https://api.twitch.tv/helix/' + path,
+            // jQuery 1.8.2 reads `type`, not `method` (added in 1.9.0) — without this the
+            // POST/DELETE mod calls silently went out as GET and hit a route-miss 404
+            type: method,
             method: method,
             headers: { 'Authorization': 'Bearer ' + Chat.auth.token, 'Client-Id': KEYCHAT_CLIENT_ID },
             contentType: 'application/json',
@@ -1111,9 +1114,10 @@ Chat = {
             var broadcasterId = Chat.info.channelIDs[sourceParts[1]];
             var userId = $line.attr('data-userid');
             var msgId = $line.attr('data-id');
-            if (!broadcasterId) return;
-
+            if (!broadcasterId || !Chat.auth || !Chat.auth.userId) return;
             var action = $btn.attr('data-act');
+            if (action !== 'delete' && !userId) return; // ban/timeout need a target user id
+
             if (action !== 'delete') {
                 if (!$btn.hasClass('armed')) {
                     $btn.addClass('armed');
@@ -1141,7 +1145,9 @@ Chat = {
                     catch (e) { why = xhr.responseText; }
                 }
                 if (!why) {
-                    if (xhr.status === 401) why = 'not authorized — you may not be a mod in this channel, or your login expired';
+                    if (xhr.status === 404) why = "the request didn't reach a valid Twitch route (wrong endpoint/verb)";
+                    else if (xhr.status === 401) why = 'not authorized — log in again, or you may not be a mod in this channel';
+                    else if (xhr.status === 403) why = "you don't have permission to moderate this channel";
                     else if (xhr.status === 400) why = "can't perform this action on this user (broadcaster/mod, or already banned)";
                     else why = 'HTTP ' + xhr.status;
                 }
