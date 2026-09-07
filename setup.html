@@ -49,6 +49,7 @@
   input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
   .section { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
   .section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 10px; }
+  .subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); font-weight: 600; margin: 12px 0 4px; border-top: 1px solid var(--border); padding-top: 10px; }
   .blockrow { display: flex; align-items: center; gap: 12px; }
   .blockrow input { flex: 1; }
   .preview-box { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; height: 320px; background: #000; }
@@ -137,7 +138,11 @@
           </select>
           <input type="text" id="text_hex" placeholder="efeff1" style="width:80px;display:none">
         </div></div>
-        <div class="opt"><label>Mod tools + chat box <span style="color:var(--muted)">(Twitch login, implies dock)</span></label><input type="checkbox" id="mod"></div>
+        <div class="subhead">Dock <span style="text-transform:none;letter-spacing:0;font-weight:400">— auto-selected when you pick a background</span></div>
+        <div class="opt"><label>Dock mode <span style="color:var(--muted)">(scrollable, top-down like Twitch)</span></label><input type="checkbox" id="dock"></div>
+        <div class="opt"><label>Timestamps</label><input type="checkbox" id="timestamps"></div>
+        <div class="opt"><label>Clickable links</label><input type="checkbox" id="links"></div>
+        <div class="opt"><label>Mod tools + chat box <span style="color:var(--muted)">(Twitch login)</span></label><input type="checkbox" id="mod"></div>
       </div>
       <div>
         <div class="opt"><label>Animate new messages</label><input type="checkbox" id="animate" checked></div>
@@ -149,8 +154,6 @@
         <div class="opt"><label>New line after name</label><input type="checkbox" id="nl"></div>
         <div class="opt"><label>Hide usernames</label><input type="checkbox" id="hide_usernames"></div>
         <div class="opt"><label>Hide badges</label><input type="checkbox" id="hide_badges"></div>
-        <div class="opt"><label>Timestamps</label><input type="checkbox" id="timestamps"></div>
-        <div class="opt"><label>Clickable links <span style="color:var(--muted)">(docks)</span></label><input type="checkbox" id="links"></div>
         <div class="opt"><label>Sub / raid / announce events</label><input type="checkbox" id="events" checked></div>
         <div class="opt"><label>Highlight first-timers &amp; channel points</label><input type="checkbox" id="highlights" checked></div>
         <div class="opt"><label>Highlight @mentions of you</label><input type="checkbox" id="mention" checked></div>
@@ -159,7 +162,6 @@
         <div class="opt"><label>7TV name paints &amp; badges</label><input type="checkbox" id="paints" checked></div>
         <div class="opt"><label>Pronouns <span style="color:var(--muted)">(pronouns.alejo.io)</span></label><input type="checkbox" id="pronouns"></div>
         <div class="opt"><label>Avatars <span style="color:var(--muted)">(Twitch profile pics)</span></label><input type="checkbox" id="avatars"></div>
-        <div class="opt"><label>Dock mode <span style="color:var(--muted)">(scrollable, top-down like Twitch)</span></label><input type="checkbox" id="dock"></div>
       </div>
     </div>
     <div class="blockrow" style="margin-top:10px">
@@ -273,6 +275,15 @@
   controls.forEach(function(id) {
     $(id).addEventListener('input', refresh);
     $(id).addEventListener('change', refresh);
+  });
+
+  // Smart default: choosing a solid background implies dock use, so pre-check the
+  // dock toggles; going back to Transparent (overlay) clears them. Fully overridable —
+  // manual changes stick until you switch background again.
+  $('bg').addEventListener('change', function() {
+    var solid = $('bg').value !== '';
+    ['dock', 'timestamps', 'links'].forEach(function(id) { $(id).checked = solid; });
+    refresh();
   });
 
   $('copy').addEventListener('click', function() {
