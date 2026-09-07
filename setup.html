@@ -158,7 +158,8 @@
         <div class="opt"><label>7TV name paints &amp; badges</label><input type="checkbox" id="paints" checked></div>
         <div class="opt"><label>Pronouns <span style="color:var(--muted)">(pronouns.alejo.io)</span></label><input type="checkbox" id="pronouns"></div>
         <div class="opt"><label>Avatars <span style="color:var(--muted)">(Twitch profile pics)</span></label><input type="checkbox" id="avatars"></div>
-        <div class="opt"><label>Mod tools + chat box <span style="color:var(--muted)">(Twitch login, docks)</span></label><input type="checkbox" id="mod"></div>
+        <div class="opt"><label>Dock mode <span style="color:var(--muted)">(scrollable, top-down like Twitch)</span></label><input type="checkbox" id="dock"></div>
+        <div class="opt"><label>Mod tools + chat box <span style="color:var(--muted)">(Twitch login, implies dock)</span></label><input type="checkbox" id="mod"></div>
       </div>
     </div>
     <div class="blockrow" style="margin-top:10px">
@@ -200,7 +201,7 @@
 <script>
 (function() {
   var $ = function(id) { return document.getElementById(id); };
-  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','text','text_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','mod','block','filter'];
+  var controls = ['channel','kick','size','size_px','font','custom_font','stroke','shadow','emote_scale','theme','bg','bg_hex','text','text_hex','animate','bots','hide_commands','fade_on','fade','caps','small_caps','nl','hide_usernames','hide_badges','timestamps','links','events','highlights','mention','alarms','alternate','paints','pronouns','avatars','dock','mod','block','filter'];
   var previewTimer = null;
 
   function params(forPreview) {
@@ -246,6 +247,7 @@
     if (!$('paints').checked) p.set('paints', 'false');
     if ($('pronouns').checked) p.set('pronouns', 'true');
     if ($('avatars').checked) p.set('avatars', 'true');
+    if ($('dock').checked || ($('mod').checked && forPreview)) p.set('dock', 'true');
     if ($('mod').checked && !forPreview) p.set('mod', 'true');
     if ($('block').value.trim()) p.set('block', $('block').value.trim().toLowerCase().replace(/\s+/g, ','));
     if ($('filter').value.trim()) p.set('filter', $('filter').value.trim().toLowerCase());

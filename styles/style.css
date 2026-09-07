@@ -175,30 +175,30 @@ body {
     animation: keychat-pulse 1.1s ease-in-out infinite;
 }
 
+/* Twitch-style mod view: compact icons before the name, always visible */
 .mod_tools {
-    display: none;
-    margin-left: 0.4em;
+    display: inline-block;
+    margin-right: 0.4em;
     vertical-align: middle;
     white-space: nowrap;
 }
 
-.chat_line:hover .mod_tools {
-    display: inline-block;
-}
-
 .mod_tools button {
-    background: rgba(0, 0, 0, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 5px;
-    font-size: 0.6em;
-    padding: 1px 5px;
-    margin-right: 3px;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.65em;
+    padding: 0 2px;
+    margin-right: 1px;
     cursor: pointer;
-    line-height: 1.3;
+    line-height: 1;
+    opacity: 0.55;
+    transition: opacity 0.1s;
 }
 
 .mod_tools button:hover {
-    background: rgba(145, 71, 255, 0.6);
+    opacity: 1;
+    background: rgba(145, 71, 255, 0.4);
 }
 
 .mod_tools button.armed {
@@ -225,6 +225,30 @@ body {
 
 #twitch_login:hover {
     filter: brightness(1.15);
+}
+
+/* Dock mode: real top-down scrollable chat (vs the bottom-anchored overlay layout) */
+body.dock #chat_container {
+    position: static;
+    height: 100vh;
+    width: 100%;
+    padding: 6px 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+body.dock.has-input #chat_container {
+    height: calc(100vh - 46px);
+}
+
+/* Thin scrollbar so it reads like a chat panel, not a webpage */
+body.dock #chat_container::-webkit-scrollbar {
+    width: 8px;
+}
+
+body.dock #chat_container::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.5);
+    border-radius: 4px;
 }
 
 #chat_input_bar {

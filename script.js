@@ -32,6 +32,8 @@ Chat = {
         alternate: ('alternate' in $.QueryString ? ($.QueryString.alternate.toLowerCase() === 'true') : false),
         alarms: ('alarms' in $.QueryString ? ($.QueryString.alarms.toLowerCase() === 'true') : false),
         modMode: ('mod' in $.QueryString ? ($.QueryString.mod.toLowerCase() === 'true') : false),
+        // Dock mode: top-down scrollable chat like the real Twitch panel (mod tools imply it)
+        dock: ('dock' in $.QueryString ? ($.QueryString.dock.toLowerCase() === 'true') : false) || ('mod' in $.QueryString && $.QueryString.mod.toLowerCase() === 'true'),
         userAvatars: {},
         animate: ('animate' in $.QueryString ? ($.QueryString.animate.toLowerCase() === 'true') : false),
         showBots: ('bots' in $.QueryString ? ($.QueryString.bots.toLowerCase() === 'true') : false),
@@ -362,6 +364,8 @@ Chat = {
         var resolvedText = resolveColor(Chat.info.textColor, { white: '#efeff1', black: '#0e0e10', dark: '#0e0e10', gray: '#adadb8', grey: '#adadb8' });
         if (!resolvedText && Chat.info.lightMode) resolvedText = '#0e0e10';
 
+        if (Chat.info.dock) document.body.classList.add('dock');
+
         // Load CSS. Sizes 1-3 are the classic presets; 4+ is a custom pixel size,
         // scaled with the same ratios the presets use (line 1.55x, emotes 1.25x, badges 0.82x)
         var customSizeCSS = '';
@@ -518,8 +522,27 @@ Chat = {
     update: setInterval(function() {
         if (Chat.info.lines.length > 0) {
             var lines = Chat.info.lines.join('');
+            var container = document.getElementById('chat_container');
 
-            if (Chat.info.animate) {
+            if (Chat.info.dock) {
+                // Dock: normal top-down flow, scrollable. Only auto-scroll to the newest
+                // message if the viewer was already at the bottom — otherwise leave them
+                // where they scrolled so they can read history (exactly like Twitch chat).
+                var atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
+                $(container).append(lines);
+                Chat.info.lines = [];
+                if (atBottom) {
+                    // Pruning from the top only while pinned to the bottom — trimming
+                    // above the viewport would jump the view while reading history
+                    var over = $('.chat_line').length - 300;
+                    while (over > 0) { $('.chat_line').eq(0).remove(); over--; }
+                    container.scrollTop = container.scrollHeight;
+                } else {
+                    // Scrolled up: hold pruning, but cap runaway growth
+                    var hardOver = $('.chat_line').length - 1000;
+                    while (hardOver > 0) { $('.chat_line').eq(0).remove(); hardOver--; }
+                }
+            } else if (Chat.info.animate) {
                 var $auxDiv = $('<div></div>', { class: "hidden" }).appendTo("#chat_container");
                 $auxDiv.append(lines);
                 var auxHeight = $auxDiv.height();
@@ -531,16 +554,16 @@ Chat = {
                     $(this).remove();
                     $('#chat_container').append(lines);
                 });
+                Chat.info.lines = [];
+                var linesToDelete = $('.chat_line').length - 100;
+                while (linesToDelete > 0) { $('.chat_line').eq(0).remove(); linesToDelete--; }
             } else {
                 $('#chat_container').append(lines);
+                Chat.info.lines = [];
+                var toDel = $('.chat_line').length - 100;
+                while (toDel > 0) { $('.chat_line').eq(0).remove(); toDel--; }
             }
-            Chat.info.lines = [];
-            var linesToDelete = $('.chat_line').length - 100;
-            while (linesToDelete > 0) {
-                $('.chat_line').eq(0).remove();
-                linesToDelete--;
-            }
-        } else if (Chat.info.fade) {
+        } else if (Chat.info.fade && !Chat.info.dock) {
             var messageTime = $('.chat_line').eq(0).data('time');
             if ((Date.now() - messageTime) / 1000 >= Chat.info.fade) {
                 $('.chat_line').eq(0).fadeOut(function() {
@@ -640,6 +663,16 @@ Chat = {
                 var now = new Date();
                 $userInfo.append($('<span></span>').addClass('timestamp')
                     .text(('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2)));
+            }
+            // Mod action icons go right after the timestamp, always visible, like Twitch's
+            // mod view. Ban / Timeout / Delete order. Only for logged-in mods on Twitch lines.
+            if (Chat.info.modMode && Chat.auth && !isKick) {
+                $chatLine.attr('data-userid', info['user-id'] || '');
+                var $tools = $('<span></span>').addClass('mod_tools');
+                [['ban', '🔨', 'Ban (click twice)'], ['timeout', '⏱', 'Timeout 10m (click twice)'], ['delete', '🗑', 'Delete message']].forEach(function(b) {
+                    $tools.append($('<button></button>').attr('data-act', b[0]).attr('title', b[2]).text(b[1]));
+                });
+                $userInfo.append($tools);
             }
             if (Chat.info.multiSource) {
                 $userInfo.append($('<span></span>')
@@ -876,15 +909,6 @@ Chat = {
             $message.html($message.html().trim());
             $chatLine.append($message);
 
-            if (Chat.info.modMode && Chat.auth && !isKick) {
-                $chatLine.attr('data-userid', info['user-id'] || '');
-                var $tools = $('<span></span>').addClass('mod_tools');
-                [['delete', '🗑', 'Delete message'], ['timeout', '⏱', 'Timeout 10m (click twice)'], ['ban', '🔨', 'Ban (click twice)']].forEach(function(b) {
-                    $tools.append($('<button></button>').attr('data-act', b[0]).attr('title', b[2]).text(b[1]));
-                });
-                $chatLine.append($tools);
-            }
-
             Chat.info.lines.push($chatLine.wrap('<div>').parent().html());
         }
     },
@@ -1080,7 +1104,8 @@ Chat = {
             .attr('placeholder', 'Chat as ' + Chat.auth.login + ' in #' + Chat.info.channel);
         var $send = $('<button id="chat_send">➤</button>');
         $bar.append($input).append($send).appendTo('body');
-        $('<style></style>').text('#chat_container { bottom: 46px; }').appendTo('head');
+        document.body.classList.add('has-input');
+        if (!Chat.info.dock) $('<style></style>').text('#chat_container { bottom: 46px; }').appendTo('head');
         var send = function() {
             var text = $input.val().trim();
             if (!text || !Chat.ircSocket || Chat.ircSocket.readyState !== 1) return;
