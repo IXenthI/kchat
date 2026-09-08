@@ -345,6 +345,57 @@ Chat = {
                 }
             });
         }
+
+        // Channel-point redemptions only reach us via EventSub, and Twitch only lets the
+        // BROADCASTER read them (not mods). So start it when the logged-in user owns this channel.
+        if (Chat.auth && Chat.info.events && String(channelID) === String(Chat.auth.userId)) {
+            Chat.startEventSub(channelID);
+        }
+    },
+
+    // EventSub over WebSocket (fully client-side) for channel-point redemptions
+    startEventSub: function(broadcasterId) {
+        if (Chat.eventSubStarted || !Chat.auth) return;
+        Chat.eventSubStarted = true;
+        var connect = function(url) {
+            var ws;
+            try { ws = new WebSocket(url || 'wss://eventsub.wss.twitch.tv/ws'); } catch (e) { return; }
+            Chat.eventSubSocket = ws;
+            ws.onmessage = function(e) {
+                var msg;
+                try { msg = JSON.parse(e.data); } catch (err) { return; }
+                var meta = msg.metadata || {};
+                if (meta.message_type === 'session_welcome') {
+                    var sessionId = msg.payload.session.id;
+                    Chat.helix('POST', 'eventsub/subscriptions', {
+                        type: 'channel.channel_points_custom_reward_redemption.add',
+                        version: '1',
+                        condition: { broadcaster_user_id: String(broadcasterId) },
+                        transport: { method: 'websocket', session_id: sessionId }
+                    }).done(function() {
+                        console.log('kChat: redemptions connected');
+                    }).fail(function(xhr) {
+                        if (xhr.status === 401 || xhr.status === 403) {
+                            Chat.writeEvent('⚠️', 'Redemptions need a new permission — type /logout and sign in again', 'mode');
+                        }
+                    });
+                } else if (meta.message_type === 'session_reconnect') {
+                    connect(msg.payload.session.reconnect_url); // Twitch closes the old socket
+                } else if (meta.message_type === 'notification' && meta.subscription_type === 'channel.channel_points_custom_reward_redemption.add') {
+                    try { Chat.handleRedemption(msg.payload.event); } catch (err) {}
+                }
+            };
+            ws.onclose = function() { if (Chat.eventSubSocket === ws) setTimeout(function() { connect(); }, 5000); };
+        };
+        connect();
+    },
+
+    handleRedemption: function(ev) {
+        if (!ev || !ev.reward || !Chat.info.events) return;
+        var cost = typeof ev.reward.cost === 'number' ? ev.reward.cost.toLocaleString() : ev.reward.cost;
+        var text = (ev.user_name || ev.user_login || 'Someone') + ' redeemed ' + ev.reward.title + ' (' + cost + ')';
+        if (ev.user_input) text += ': ' + ev.user_input;
+        Chat.writeEvent('🎁', text, 'redeem');
     },
 
     loadUserAvatar: function(nick) {
@@ -1077,6 +1128,7 @@ Chat = {
                 if (i === 2) Chat.writeEvent('⭐', 'StreamFan42 subscribed at Tier 1. They\'ve subscribed for 3 months!', 'resub');
                 if (i === 4) Chat.writeEvent('🎉', '12 raiders from PixelPal have joined!', 'raid');
                 if (i === 6) Chat.writeEvent('🐌', 'Slow mode: 10s', 'mode');
+                if (i === 8) Chat.writeEvent('🎁', 'Dessieed redeemed Hero Request (5,000)', 'redeem');
                 if (i === 5) Chat.write('replyfan', { id: 'demo-r' + i, color: '#FF4500', 'display-name': 'ReplyFan', 'reply-parent-display-name': 'PixelPal', 'reply-parent-user-login': 'pixelpal', 'reply-parent-msg-body': 'welcome to the keychat preview' }, '@PixelPal thanks!');
                 if (i === 7) Chat.write('vipviewer', { id: 'demo-rd' + i, color: '#1E90FF', 'display-name': 'VIPViewer', 'custom-reward-id': 'demo' }, 'redeemed a reward to say this');
                 if (i === 3 && Chat.info.multiSource) {
@@ -1125,7 +1177,7 @@ Chat = {
             '?client_id=' + encodeURIComponent(KEYCHAT_CLIENT_ID) +
             '&redirect_uri=' + encodeURIComponent(window.location.origin + window.location.pathname) +
             '&response_type=token' +
-            '&scope=' + encodeURIComponent('chat:read chat:edit moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:announcements channel:manage:vips channel:manage:moderators') +
+            '&scope=' + encodeURIComponent('chat:read chat:edit moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:announcements channel:manage:vips channel:manage:moderators channel:read:redemptions') +
             '&state=' + encodeURIComponent(state);
     },
 

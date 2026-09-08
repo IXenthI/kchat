@@ -73,6 +73,7 @@ Moderators or the broadcaster can type `!refreshoverlay` in chat to reload emote
 | Multi-channel Twitch merge with per-message source chips | ✅ |
 | Twitch Shared Chat labeling (and de-duplication when both rooms are joined) | ✅ |
 | Chat-mode notices (slow / emote-only / sub-only / followers-only toggles) | ✅ |
+| Channel-point redemptions with reward name + cost (broadcaster only, via EventSub) | ✅ |
 | Theme presets (bubbles, compact, right-aligned) | ✅ |
 | Live emote updates & 7TV name paints/badges (7TV EventAPI) | ✅ |
 | Twitch native emotes and badges (sub, mod, VIP, …) | ✅ (badges via IVR, degrade gracefully) |
