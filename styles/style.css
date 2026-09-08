@@ -186,6 +186,18 @@ body {
     100% { box-shadow: inset 4px 0 0 #ffb31a, 0 0 0 0 rgba(255, 179, 26, 0); }
 }
 
+/* Crystal-ball icon: gentle float + glowing pulse when animated icons are enabled */
+.event_icon.orb_anim {
+    display: inline-block;
+    animation: keychat-orb 1.8s ease-in-out infinite;
+    filter: drop-shadow(0 0 3px rgba(179, 136, 255, 0.9));
+}
+
+@keyframes keychat-orb {
+    0%, 100% { transform: translateY(0) scale(1) rotate(-6deg); }
+    50% { transform: translateY(-3px) scale(1.18) rotate(6deg); }
+}
+
 /* Emote hover tooltip (name + provider + enlarged preview) */
 #emote_tooltip {
     position: fixed;

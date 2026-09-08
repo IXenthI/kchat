@@ -395,7 +395,7 @@ Chat = {
         var cost = typeof ev.reward.cost === 'number' ? ev.reward.cost.toLocaleString() : ev.reward.cost;
         var text = (ev.user_name || ev.user_login || 'Someone') + ' redeemed ' + ev.reward.title + ' (' + cost + ')';
         if (ev.user_input) text += ': ' + ev.user_input;
-        Chat.writeEvent('🎁', text, 'redeem');
+        Chat.writeEvent('🔮', text, 'redeem');
     },
 
     loadUserAvatar: function(nick) {
@@ -1036,7 +1036,10 @@ Chat = {
     writeEvent: function(icon, text, kind) {
         if (!text) return;
         var $line = $('<div></div>').addClass('chat_line event_line event_' + kind).attr('data-time', Date.now());
-        $line.append($('<span></span>').addClass('event_icon').text(icon));
+        var $icon = $('<span></span>').addClass('event_icon').text(icon);
+        // The redemption crystal ball floats/pulses when animated icons (alarms) are on
+        if (kind === 'redeem' && Chat.info.alarms) $icon.addClass('orb_anim');
+        $line.append($icon);
         $line.append($('<span></span>').addClass('event_text').text(' ' + text));
         Chat.info.lines.push($line.wrap('<div>').parent().html());
     },
@@ -1128,7 +1131,7 @@ Chat = {
                 if (i === 2) Chat.writeEvent('⭐', 'StreamFan42 subscribed at Tier 1. They\'ve subscribed for 3 months!', 'resub');
                 if (i === 4) Chat.writeEvent('🎉', '12 raiders from PixelPal have joined!', 'raid');
                 if (i === 6) Chat.writeEvent('🐌', 'Slow mode: 10s', 'mode');
-                if (i === 8) Chat.writeEvent('🎁', 'Dessieed redeemed Hero Request (5,000)', 'redeem');
+                if (i === 8) Chat.writeEvent('🔮', 'Dessieed redeemed Hero Request (5,000)', 'redeem');
                 if (i === 5) Chat.write('replyfan', { id: 'demo-r' + i, color: '#FF4500', 'display-name': 'ReplyFan', 'reply-parent-display-name': 'PixelPal', 'reply-parent-user-login': 'pixelpal', 'reply-parent-msg-body': 'welcome to the keychat preview' }, '@PixelPal thanks!');
                 if (i === 7) Chat.write('vipviewer', { id: 'demo-rd' + i, color: '#1E90FF', 'display-name': 'VIPViewer', 'custom-reward-id': 'demo' }, 'redeemed a reward to say this');
                 if (i === 3 && Chat.info.multiSource) {
