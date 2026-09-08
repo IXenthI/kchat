@@ -1125,7 +1125,7 @@ Chat = {
             '?client_id=' + encodeURIComponent(KEYCHAT_CLIENT_ID) +
             '&redirect_uri=' + encodeURIComponent(window.location.origin + window.location.pathname) +
             '&response_type=token' +
-            '&scope=' + encodeURIComponent('chat:read chat:edit moderator:manage:banned_users moderator:manage:chat_messages') +
+            '&scope=' + encodeURIComponent('chat:read chat:edit moderator:manage:banned_users moderator:manage:chat_messages moderator:manage:chat_settings moderator:manage:announcements channel:manage:vips channel:manage:moderators') +
             '&state=' + encodeURIComponent(state);
     },
 
@@ -1195,6 +1195,88 @@ Chat = {
         });
     },
 
+    // Slash commands: Twitch removed these from IRC in 2023, so route them to Helix.
+    // Works in the primary channel where you're broadcaster/mod.
+    runChatCommand: function(text) {
+        var parts = text.slice(1).trim().split(/\s+/);
+        var cmd = parts[0].toLowerCase();
+        var arg = parts[1];
+        var broadcasterId = Chat.info.channelIDs[Chat.info.channel];
+        if (!broadcasterId || !Chat.auth || !Chat.auth.userId) {
+            Chat.writeEvent('⚠️', 'Not connected or not logged in', 'mode');
+            return;
+        }
+        var mod = 'broadcaster_id=' + encodeURIComponent(broadcasterId) + '&moderator_id=' + encodeURIComponent(Chat.auth.userId);
+        var bcOnly = 'broadcaster_id=' + encodeURIComponent(broadcasterId);
+        var ok = function(msg) { return function() { Chat.writeEvent('✅', msg, 'mode'); }; };
+        var fail = function() {
+            return function(xhr) {
+                var why = (xhr.responseJSON && xhr.responseJSON.message) || '';
+                if (!why && xhr.responseText) { try { why = JSON.parse(xhr.responseText).message || ''; } catch (e) {} }
+                if (!why) {
+                    if (xhr.status === 401) why = 'missing permission — log out and back in to grant it';
+                    else if (xhr.status === 403) why = "you don't have permission for this in this channel";
+                    else if (xhr.status === 400) why = 'invalid target or already in that state';
+                    else why = 'HTTP ' + xhr.status;
+                }
+                Chat.writeEvent('⚠️', '/' + cmd + ' failed: ' + why, 'mode');
+            };
+        };
+        // Resolve a login to a numeric user id (public endpoint, no scope needed)
+        var withUser = function(login, fn) {
+            if (!login) { Chat.writeEvent('⚠️', 'Usage: /' + cmd + ' <user>', 'mode'); return; }
+            Chat.helix('GET', 'users?login=' + encodeURIComponent(login.replace(/^@/, '').toLowerCase()))
+                .done(function(res) {
+                    var id = res && res.data && res.data[0] && res.data[0].id;
+                    if (!id) { Chat.writeEvent('⚠️', 'No such user: ' + login, 'mode'); return; }
+                    fn(id);
+                }).fail(fail());
+        };
+        var setChat = function(body, label) { Chat.helix('PATCH', 'chat/settings?' + mod, body).done(ok(label)).fail(fail()); };
+        var parseDur = function(s) { var m = /^(\d+)([smhd]?)$/.exec(s || ''); if (!m) return 600; return (+m[1]) * ({ s: 1, m: 60, h: 3600, d: 86400 }[m[2] || 's']); };
+
+        switch (cmd) {
+            case 'ban':
+                withUser(arg, function(id) { Chat.helix('POST', 'moderation/bans?' + mod, { data: { user_id: id, reason: parts.slice(2).join(' ') } }).done(ok('Banned ' + arg)).fail(fail()); });
+                break;
+            case 'unban': case 'untimeout':
+                withUser(arg, function(id) { Chat.helix('DELETE', 'moderation/bans?' + mod + '&user_id=' + id).done(ok((cmd === 'unban' ? 'Unbanned ' : 'Removed timeout on ') + arg)).fail(fail()); });
+                break;
+            case 'timeout':
+                withUser(arg, function(id) { Chat.helix('POST', 'moderation/bans?' + mod, { data: { user_id: id, duration: parseDur(parts[2]), reason: parts.slice(3).join(' ') } }).done(ok('Timed out ' + arg)).fail(fail()); });
+                break;
+            case 'clear':
+                Chat.helix('DELETE', 'moderation/chat?' + mod).done(ok('Chat cleared')).fail(fail());
+                break;
+            case 'slow': setChat({ slow_mode: true, slow_mode_wait_time: parseInt(arg) || 30 }, 'Slow mode on'); break;
+            case 'slowoff': setChat({ slow_mode: false }, 'Slow mode off'); break;
+            case 'followers': setChat({ follower_mode: true, follower_mode_duration: parseInt(arg) || 0 }, 'Followers-only on'); break;
+            case 'followersoff': setChat({ follower_mode: false }, 'Followers-only off'); break;
+            case 'subscribers': setChat({ subscriber_mode: true }, 'Subscribers-only on'); break;
+            case 'subscribersoff': setChat({ subscriber_mode: false }, 'Subscribers-only off'); break;
+            case 'emoteonly': setChat({ emote_mode: true }, 'Emote-only on'); break;
+            case 'emoteonlyoff': setChat({ emote_mode: false }, 'Emote-only off'); break;
+            case 'uniquechat': case 'r9kbeta': setChat({ unique_chat_mode: true }, 'Unique-chat on'); break;
+            case 'uniquechatoff': case 'r9kbetaoff': setChat({ unique_chat_mode: false }, 'Unique-chat off'); break;
+            case 'vip': withUser(arg, function(id) { Chat.helix('POST', 'channels/vips?' + bcOnly + '&user_id=' + id).done(ok('VIP added: ' + arg)).fail(fail()); }); break;
+            case 'unvip': withUser(arg, function(id) { Chat.helix('DELETE', 'channels/vips?' + bcOnly + '&user_id=' + id).done(ok('VIP removed: ' + arg)).fail(fail()); }); break;
+            case 'mod': withUser(arg, function(id) { Chat.helix('POST', 'moderation/moderators?' + bcOnly + '&user_id=' + id).done(ok('Modded ' + arg)).fail(fail()); }); break;
+            case 'unmod': withUser(arg, function(id) { Chat.helix('DELETE', 'moderation/moderators?' + bcOnly + '&user_id=' + id).done(ok('Unmodded ' + arg)).fail(fail()); }); break;
+            case 'announce':
+                var msg = text.slice(text.indexOf(' ') + 1);
+                if (!msg || msg === text) { Chat.writeEvent('⚠️', 'Usage: /announce <message>', 'mode'); break; }
+                Chat.helix('POST', 'chat/announcements?' + mod, { message: msg }).done(ok('Announced')).fail(fail());
+                break;
+            case 'logout':
+                try { localStorage.removeItem('keychat_token'); } catch (e) {}
+                Chat.writeEvent('✅', 'Logged out — reloading to sign in again', 'mode');
+                setTimeout(function() { location.reload(); }, 600);
+                break;
+            default:
+                Chat.writeEvent('⚠️', 'Unsupported command: /' + cmd + ' (KeyChat routes mod commands via the Twitch API)', 'mode');
+        }
+    },
+
     // Bottom chat box: talk in the primary channel straight from the dock
     setupChatBox: function() {
         var $bar = $('<div id="chat_input_bar"></div>');
@@ -1206,9 +1288,14 @@ Chat = {
         if (!Chat.info.dock) $('<style></style>').text('#chat_container { bottom: 46px; }').appendTo('head');
         var send = function() {
             var text = $input.val().trim();
-            if (!text || !Chat.ircSocket || Chat.ircSocket.readyState !== 1) return;
-            Chat.ircSocket.send('PRIVMSG #' + Chat.info.channel + ' :' + text + '\r\n');
+            if (!text) return;
             $input.val('');
+            // Slash commands (except /me) go through Helix, not IRC — Twitch dropped
+            // IRC commands in 2023, so sending them as messages does nothing.
+            var cmd = text.charAt(0) === '/' ? text.slice(1).split(/\s+/)[0].toLowerCase() : '';
+            if (cmd && cmd !== 'me') { Chat.runChatCommand(text); return; }
+            if (!Chat.ircSocket || Chat.ircSocket.readyState !== 1) return;
+            Chat.ircSocket.send('PRIVMSG #' + Chat.info.channel + ' :' + text + '\r\n');
             // Twitch doesn't echo your own messages back on this connection
             Chat.write(Chat.auth.login, { id: 'own-' + Date.now(), color: '#9147ff', 'display-name': Chat.auth.login }, text, { platform: 'twitch', channel: Chat.info.channel });
         };

@@ -94,6 +94,7 @@ Add `mod=true` to a **docked** KeyChat URL and a "Log in with Twitch" button app
 
 - Hover any Twitch message for 🗑 delete, ⏱ 10-minute timeout, 🔨 ban (timeout/ban need a second click within 3s to confirm)
 - A chat box appears at the bottom so you can talk in your primary channel from the dock
+- **Slash commands work** — `/ban`, `/unban`, `/timeout`, `/untimeout`, `/clear`, `/slow`, `/followers`, `/subscribers`, `/emoteonly`, `/uniquechat` (+ their `off` variants), `/vip`, `/unvip`, `/mod`, `/unmod`, `/announce`. Twitch removed commands from IRC in 2023, so KeyChat routes them through the Helix API. `/logout` re-signs-in (needed once to grant the mode/VIP/announce permissions).
 - Actions work only in channels where your account actually has mod powers — Twitch enforces this server-side
 
 Requires the hosted (https) version — OAuth can't redirect to `file://` pages. Self-hosting a fork? Register your own free app at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) (Client Type: **Public**, redirect URL = your hosted `index.html`) and put its Client ID in `settings.js`.
